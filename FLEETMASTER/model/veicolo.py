@@ -13,4 +13,5 @@ class Veicolo(db.Model):
     stato_disponibile = db.Column(db.Boolean, default=True)
     ultima_manutenzione = db.Column(db.Date)
 
+    tipologia_id = db.Column(db.String(50), db.ForeignKey('tipologia_veicolo.id'), nullable=True)
     prenotazioni = db.relationship("Prenotazione", backref="veicolo", lazy=True, cascade="all, delete")

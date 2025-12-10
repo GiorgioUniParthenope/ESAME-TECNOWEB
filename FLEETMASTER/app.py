@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-from model import db, Utente, Veicolo
-from route import login_required 
+from model import db, Utente, Veicolo, Prenotazione, LogOperazione, Utente
+from route.login_required import login_required
+from datetime import datetime
 from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
@@ -54,7 +55,7 @@ def login_post():
 # GET VEICOLI
 # ==========================
 @app.route('/getAllVeicoli', methods=['GET'])
-@login_required
+
 def get_veicoli_disponibili():
     try:
         veicoli = Veicolo.query.filter_by(stato_disponibile=True).all()
@@ -79,6 +80,63 @@ def get_veicoli_disponibili():
     except Exception as e:
         # Log dell'errore lato server
         print("Errore durante il recupero dei veicoli disponibili:", str(e))
+        return jsonify({"success": False, "message": "Errore interno del server"}), 500
+    
+    
+# ==========================
+# PRENOTAZIONE
+# ==========================   
+
+@app.route('/prenotaVeicolo', methods=['POST'])
+def prenota_veicolo():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        veicolo_id = data.get('veicolo_id')
+        data_inizio = data.get('data_inizio')
+        data_fine = data.get('data_fine')
+        note = data.get('note', '')
+
+        # Controllo dati mancanti
+        if not all([user_id, veicolo_id, data_inizio, data_fine]):
+            return jsonify({"success": False, "message": "Dati mancanti"}), 400
+
+        # Controllo veicolo disponibile
+        veicolo = Veicolo.query.get(veicolo_id)
+        if not veicolo:
+            return jsonify({"success": False, "message": "Veicolo non trovato"}), 404
+        if not veicolo.stato_disponibile:
+            return jsonify({"success": False, "message": "Veicolo non disponibile"}), 400
+
+        # Creazione prenotazione
+        prenotazione = Prenotazione(
+            user_id=user_id,
+            veicolo_id=veicolo_id,
+            data_inizio=datetime.fromisoformat(data_inizio),
+            data_fine=datetime.fromisoformat(data_fine),
+            stato='prenotata',
+            note=note
+        )
+        db.session.add(prenotazione)
+
+        # Aggiorna lo stato del veicolo
+        veicolo.stato_disponibile = False
+
+        # Log dell'operazione
+        log = LogOperazione(
+            user_id=user_id,
+            azione='Prenotazione veicolo',
+            descrizione=f'Veicolo {veicolo.marca} {veicolo.modello} ({veicolo.targa}) prenotato da utente {user_id}'
+        )
+        db.session.add(log)
+
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "Veicolo prenotato correttamente"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print("Errore prenotazione:", e)
         return jsonify({"success": False, "message": "Errore interno del server"}), 500
 
 # ==========================
