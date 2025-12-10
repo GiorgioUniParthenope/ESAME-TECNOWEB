@@ -1,0 +1,32 @@
+/* static/css/login.css */
+
+body, html {
+  height: 100%;
+  font-family: 'Roboto', sans-serif;
+  background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
+}
+
+.login-wrapper {
+  height: 100%;
+}
+
+.card {
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  background-color: #ffffff;
+}
+
+.logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+#loginForm input {
+  border-radius: 8px;
+}
+
+#loginForm button {
+  border-radius: 8px;
+}
