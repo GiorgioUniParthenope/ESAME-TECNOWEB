@@ -1,89 +1,126 @@
-.grid-veicoli {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-    padding: 20px;
+:root {
+  --primary-color: #0d6efd;
+  --bg-color: #eff2f7;
+  --card-bg: #ffffff;
+  --card-border-radius: 12px;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --card-shadow-hover: 0 12px 24px rgba(0, 0, 0, 0.1);
 }
 
-/* Tablet */
-@media (max-width: 992px) {
-    .grid-veicoli {
-        grid-template-columns: repeat(2, 1fr);
-    }
+body {
+  background-color: var(--bg-color);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Telefono */
-@media (max-width: 600px) {
-    .grid-veicoli {
-        grid-template-columns: repeat(1, 1fr);
-    }
+/* --- PAGINAZIONE --- */
+.pagination {
+    margin-bottom: 3rem;
+}
+.page-link {
+    color: var(--primary-color);
+    border: none;
+    margin: 0 5px;
+    border-radius: 5px !important;
+    font-weight: 600;
+}
+.page-link:hover {
+    background-color: #e9ecef;
+}
+.page-item.active .page-link {
+    background-color: var(--primary-color);
+    color: white;
 }
 
-.card-veicolo {
-    border: 1px solid #ddd;
-    border-radius: 12px;
-    padding: 15px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    background: white;
-    transition: transform 0.3s, box-shadow 0.3s;
+/* --- NUOVE CARD VEICOLO --- */
+/* Rimuoviamo .grid-veicoli perché ora usiamo le row di Bootstrap nell'HTML */
+
+.vehicle-card {
+    border: none;
+    border-radius: var(--card-border-radius);
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s ease;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
+    overflow: hidden;
+    position: relative;
 }
 
-.card-veicolo:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+.vehicle-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--card-shadow-hover);
 }
 
-.card-veicolo img {
+/* Immagine */
+.vehicle-img-wrapper {
+    position: relative;
     width: 100%;
-    height: 160px;
+    height: 200px; /* Altezza fissa per allineare tutto */
+    overflow: hidden;
+    background-color: #f0f2f5;
+}
+
+.vehicle-img-wrapper img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border-radius: 8px;
-    margin-bottom: 10px;
+    transition: transform 0.5s ease;
 }
 
-.card-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin-bottom: 5px;
+.vehicle-card:hover .vehicle-img-wrapper img {
+    transform: scale(1.05);
 }
 
-.card-info {
-    font-size: 14px;
-    margin: 2px 0;
+/* Badge (Disponibile/Occupato) */
+.status-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 2;
 }
 
-.card-badge {
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    color: white;
-    margin: 5px 0;
+/* Corpo Card */
+.card-body-custom {
+    padding: 1.25rem;
+    flex-grow: 1; /* Spinge il bottone in basso */
+    display: flex;
+    flex-direction: column;
 }
 
-.card-badge.disponibile {
-    background-color: #28a745; /* verde */
+.vehicle-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 0.5rem;
 }
 
-.card-badge.non-disponibile {
-    background-color: #dc3545; /* rosso */
+.vehicle-detail {
+    font-size: 0.95rem;
+    color: #666;
+    margin-bottom: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.card-button {
-    margin-top: 10px;
-    padding: 8px 14px;
-    border: none;
-    border-radius: 6px;
-    background-color: #007bff;
-    color: white;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background 0.3s;
+/* Footer Card (Bottone) */
+.card-footer-custom {
+    padding: 1.25rem;
+    padding-top: 0;
+    background: transparent;
 }
 
-.card-button:hover {
-    background-color: #0056b3;
+/* --- CARD PRENOTAZIONE ATTIVA --- */
+.active-booking-card {
+    background: white;
+    border-left: 5px solid var(--primary-color);
+    border-radius: var(--card-border-radius);
+    box-shadow: 0 4px 15px rgba(13, 110, 253, 0.15);
 }

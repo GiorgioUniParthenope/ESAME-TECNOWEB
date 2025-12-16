@@ -1,0 +1,220 @@
+/* DEFINIAMO SOLO LO STILE INTERNO DEL CONTENUTO */
+/* Non tocchiamo body, header o footer */
+
+:root {
+    --primary-color: #0066cc;
+    --primary-dark: #004c99;
+    --card-bg: #ffffff;
+    --text-main: #333;
+    --text-muted: #666;
+    --border-radius: 12px;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    --primary-color: #0066cc;
+    --primary-dark: #004c99;
+
+    /* MODIFICA QUI: Un grigio-bluastro leggermente più scuro per staccare bene le card */
+    --bg-color: #eff2f7;
+
+    --card-bg: #ffffff;
+    --text-main: #333;
+    --text-muted: #666;
+    --border-radius: 12px;
+
+    /* Ombra più morbida per far "galleggiare" le card sullo sfondo nuovo */
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* Assicuriamoci che il body prenda questo colore */
+body,
+html {
+    height: 100%;
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--bg-color);
+    /* ... resto del css body ... */
+}
+
+
+/* Wrapper specifico per non rompere il layout del sito */
+.custom-booking-wrapper {
+    width: 100%;
+    max-width: 1100px;
+    /* Larghezza massima contenuto */
+    margin: 30px auto;
+    /* Centra e dai aria sopra/sotto */
+    padding: 0 20px;
+    /* Spazio laterale di sicurezza */
+    box-sizing: border-box;
+}
+
+/* --- Pulsante Indietro --- */
+.header-nav {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.btn-back {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.2s;
+    font-size: 0.95rem;
+    cursor: pointer;
+    /* Aggiunto cursore */
+}
+
+.btn-back:hover {
+    color: var(--primary-color);
+}
+
+/* --- LAYOUT A GRIGLIA --- */
+.booking-layout {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    /* Sinistra stretta, destra larga */
+    gap: 30px;
+    align-items: start;
+}
+
+/* --- CARD VEICOLO (Sinistra) --- */
+.vehicle-card {
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
+    padding: 25px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    border-left: 5px solid var(--primary-color);
+    /* Assicuriamo che il testo stia dentro */
+    overflow: hidden;
+}
+
+.vehicle-header {
+    margin-bottom: 20px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 15px;
+}
+
+.vehicle-title {
+    font-size: 1.4rem;
+    margin: 0;
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+.vehicle-subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: 5px;
+}
+
+.specs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.spec-item {
+    background: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.spec-label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.spec-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #2c3e50;
+    border: none;
+    background: transparent;
+    width: 100%;
+    padding: 0;
+}
+
+/* --- FORM CARD (Destra) --- */
+.booking-form-card {
+    background: var(--card-bg);
+    padding: 35px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.form-section-title {
+    margin-top: 0;
+    margin-bottom: 25px;
+    color: var(--primary-color);
+    font-size: 1.4rem;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.3s;
+    box-sizing: border-box;
+}
+
+.form-input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+textarea.form-input {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.btn-submit {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 10px;
+    box-shadow: 0 4px 15px rgba(0, 102, 204, 0.3);
+    transition: background 0.3s;
+}
+
+.btn-submit:hover {
+    background-color: var(--primary-dark);
+}
+
+/* RESPONSIVE */
+@media (max-width: 850px) {
+    .booking-layout {
+        grid-template-columns: 1fr;
+    }
+
+    /* Colonna singola */
+    .custom-booking-wrapper {
+        margin: 20px auto;
+    }
+}

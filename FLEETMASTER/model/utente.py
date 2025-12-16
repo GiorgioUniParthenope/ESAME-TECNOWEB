@@ -18,3 +18,14 @@ class Utente(db.Model):
     log_operazioni = db.relationship("LogOperazione", backref="utente", lazy=True)
     prenotazioni = db.relationship("Prenotazione", backref="utente", lazy=True, cascade="all, delete")
     report_generati = db.relationship("Report", backref="autore", lazy=True)
+    
+    def to_dict(self):
+        return {
+            "user_id": str(self.user_id),
+            "nome": self.nome,
+            "cognome": self.cognome,
+            "email": self.email,
+            "ruolo_id": str(self.ruolo_id) if self.ruolo_id else None,
+            "data_creazione": self.data_creazione.isoformat() if self.data_creazione else None,
+            "stato_attivo": self.stato_attivo
+        }
