@@ -50,22 +50,24 @@
           <div class="booking-form-card">
             <h2 class="form-section-title">Compila i dettagli</h2>
 
-            <div class="form-group">
-              <label class="form-label" for="data_inizio">Quando ritiri il veicolo?</label>
-              <input type="datetime-local" id="data_inizio" class="form-input" required />
+            <div class="form-group mb-3">
+              <label class="form-label fw-bold" for="data_inizio">Quando ritiri il veicolo?</label>
+              <input type="datetime-local" id="data_inizio" class="form-input form-control" required />
+              <div class="form-text text-muted small">Seleziona data e ora di ritiro (da oggi in poi).</div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label" for="data_fine">Quando lo riconsegni?</label>
-              <input type="datetime-local" id="data_fine" class="form-input" required />
+            <div class="form-group mb-3">
+              <label class="form-label fw-bold" for="data_fine">Quando lo riconsegni?</label>
+              <input type="datetime-local" id="data_fine" class="form-input form-control" required />
+              <div class="form-text text-muted small">Deve essere successiva alla data di ritiro.</div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label" for="note">Motivazione viaggio / Note</label>
-              <textarea id="note" class="form-input" rows="4" placeholder="Es. Trasferta clienti a Milano..."></textarea>
+            <div class="form-group mb-4">
+              <label class="form-label fw-bold" for="note">Motivazione viaggio / Note</label>
+              <textarea id="note" class="form-input form-control" rows="4" placeholder="Es. Trasferta clienti a Milano..."></textarea>
             </div>
 
-            <button type="button" class="btn-submit" onclick="inviaPrenotazione()">Conferma Prenotazione</button>
+            <button type="button" class="btn-submit w-100" onclick="inviaPrenotazione()">Conferma Prenotazione</button>
           </div>
         </div>
       </form>
@@ -80,13 +82,36 @@
           </div>
           <div class="modal-body text-center py-4">
             <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="#198754" class="bi bi-check-circle-fill mb-3" viewBox="0 0 16 16">
-              <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+              <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z" />
             </svg>
             <p class="fs-5 fw-bold">Richiesta inviata con successo!</p>
             <p class="text-muted">La tua prenotazione è stata registrata ed è in attesa di approvazione.</p>
           </div>
           <div class="modal-footer justify-content-center">
             <button type="button" class="btn btn-success px-4" data-bs-dismiss="modal">OK, Torna alla Home</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalErrore" tabindex="-1" aria-labelledby="modalErroreLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title" id="modalErroreLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Attenzione</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body py-4 text-center">
+            <div class="text-danger mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
+              </svg>
+            </div>
+            <p class="fs-6 fw-semibold" id="modalErroreTesto">Si è verificato un errore.</p>
+          </div>
+          <div class="modal-footer justify-content-center bg-light">
+            <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Ho capito</button>
           </div>
         </div>
       </div>

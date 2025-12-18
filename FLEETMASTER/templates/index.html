@@ -15,7 +15,6 @@
     {% include 'header.html' %}
 
     <main class="flex-grow-1 container py-5">
-      
       <div id="sezionePrenotazioneAttiva" style="display: none;" class="mb-5">
         <h2 id="titoloSezionePrenotazione" class="mb-4 fw-bold text-dark border-start border-5 border-primary ps-3">La tua prenotazione</h2>
         <div id="containerTuaPrenotazione"></div>
@@ -55,6 +54,26 @@
       </div>
     </div>
 
+    <div class="modal fade" id="modalRifiuto" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title fw-bold"><i class="bi bi-x-octagon-fill me-2"></i>Prenotazione Respinta</h5>
+          </div>
+          <div class="modal-body p-4 text-center">
+            <div class="mb-3">
+              <i class="bi bi-calendar-x text-danger" style="font-size: 3rem;"></i>
+            </div>
+            <p class="fs-5 fw-bold text-dark">L'amministratore non ha approvato la tua richiesta.</p>
+            <p class="text-muted small">Cliccando su "Ho capito", la prenotazione verrà rimossa dallo storico e potrai effettuarne una nuova.</p>
+          </div>
+          <div class="modal-footer bg-light border-0 justify-content-center">
+            <button type="button" class="btn btn-danger px-5 fw-bold" id="btnAckRifiuto">Ho Capito</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal fade" id="modalSuccesso" tabindex="-1" aria-labelledby="modalSuccessoLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -64,10 +83,10 @@
           </div>
           <div class="modal-body text-center py-4">
             <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-            <p class="fs-5 fw-bold mt-3">Veicolo restituito con successo!</p>
+            <p class="fs-5 fw-bold mt-3">Operazione eseguita con successo!</p>
           </div>
           <div class="modal-footer justify-content-center">
-             <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
+            <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
           </div>
         </div>
       </div>

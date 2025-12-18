@@ -391,8 +391,8 @@ def get_ultima_prenotazione():
     try:
         user_id = session['user']['user_id']
         
-        # Filtriamo solo gli stati che consideriamo "Attivi"
-        stati_attivi = ['in attesa', 'approvata', 'prenotata']
+        # Filtriamo solo gli stati che consideriamo "Attivi" o "Da gestire"
+        stati_attivi = ['in attesa', 'approvata', 'prenotata', 'rifiutata']
 
         # Query migliorata: cerca solo prenotazioni negli stati attivi
         result = db.session.query(Prenotazione, Veicolo)\
@@ -504,6 +504,63 @@ def get_all_tipologie():
         return jsonify({"success": True, "tipologie": lista}), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+# ==========================
+# API UTENTE: CONFERMA VISIONE RIFIUTO (DELETE + LOG)
+# ==========================
+@app.route('/confermaVisioneRifiuto', methods=['POST'])
+@login_required
+def conferma_visione_rifiuto():
+    try:
+        data = request.get_json()
+        prenotazione_id = data.get('prenotazione_id')
+        user_id = session['user']['user_id']
+
+        if not prenotazione_id:
+            return jsonify({'success': False, 'message': 'ID prenotazione mancante'}), 400
+
+        # 1. Recuperiamo la prenotazione
+        prenotazione = Prenotazione.query.get(prenotazione_id)
+
+        if not prenotazione:
+            return jsonify({'success': False, 'message': 'Prenotazione non trovata'}), 404
+
+        # 2. Controllo di sicurezza: l'utente deve essere il proprietario
+        if str(prenotazione.user_id) != str(user_id):
+            return jsonify({'success': False, 'message': 'Non autorizzato a gestire questa prenotazione'}), 403
+
+        # 3. PREPARIAMO IL LOG (Prima di cancellare, così abbiamo i dati)
+        info_veicolo = "Veicolo sconosciuto"
+        veicolo = Veicolo.query.get(prenotazione.veicolo_id)
+        if veicolo:
+            info_veicolo = f"{veicolo.marca} {veicolo.modello} ({veicolo.targa})"
+
+        descrizione_log = (
+            f"L'utente ha confermato la presa visione del rifiuto. "
+            f"Cancellazione automatica prenotazione ID {prenotazione_id}. "
+            f"Dati precedenti: Veicolo {info_veicolo}, "
+            f"Dal {prenotazione.data_inizio} Al {prenotazione.data_fine}"
+        )
+
+        nuovo_log = LogOperazione(
+            user_id=user_id,
+            azione='Cancellazione (Presa Visione Rifiuto)',
+            descrizione=descrizione_log
+        )
+        db.session.add(nuovo_log)
+
+        # 4. CANCELLIAMO LA PRENOTAZIONE
+        db.session.delete(prenotazione)
+
+        # 5. COMMIT ATOMICO (Salva log e cancella prenotazione insieme)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Prenotazione rimossa e operazione registrata'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Errore conferma_visione_rifiuto: {str(e)}")
+        return jsonify({'success': False, 'message': 'Errore durante l\'operazione'}), 500
 
 # ==========================
 # AVVIO SERVER

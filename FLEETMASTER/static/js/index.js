@@ -4,6 +4,7 @@ let isNoleggioAttivo = false; // Diventa true se c'è una prenotazione attiva O 
 const ELEMENTI_PER_PAGINA = 6;
 let paginaCorrente = 1;
 let prenotazioneIdDaCancellare = null;
+let idDaCancellareDopoRifiuto = null; // NUOVO: ID per gestire il rifiuto
 
 $(function () {
     caricaTutto();
@@ -12,6 +13,13 @@ $(function () {
     $('#btnConfermaRestituzione').click(function () {
         if (prenotazioneIdDaCancellare) {
             eseguiRestituzione(prenotazioneIdDaCancellare);
+        }
+    });
+
+    // NUOVO: Gestione click "Ho Capito" su modale rifiuto
+    $('#btnAckRifiuto').click(function () {
+        if (idDaCancellareDopoRifiuto) {
+            cancellaPrenotazioneRifiutata(idDaCancellareDopoRifiuto);
         }
     });
 });
@@ -40,10 +48,42 @@ function caricaTutto() {
                 isNoleggioAttivo = true; // Blocca comunque i bottoni
                 mostraPrenotazioneInAttesa(p);
             }
+            // CASO 3: Prenotazione RIFIUTATA -> Modale Rossa
+            else if (p.stato === 'rifiutata') {
+                isNoleggioAttivo = true; // Blocca i bottoni sotto
+
+                // Salviamo ID e apriamo modale
+                idDaCancellareDopoRifiuto = p.prenotazione_id;
+                const modalRifiuto = new bootstrap.Modal(document.getElementById('modalRifiuto'));
+                modalRifiuto.show();
+            }
         }
 
         // Carichiamo la lista veicoli (i bottoni saranno disabilitati se isNoleggioAttivo è true)
         scaricaVeicoli();
+    });
+}
+
+// === NUOVA FUNZIONE PER CANCELLARE DOPO RIFIUTO ===
+function cancellaPrenotazioneRifiutata(id) {
+    $('#btnAckRifiuto').prop('disabled', true).text('Elaborazione...');
+
+    $.ajax({
+        url: '/confermaVisioneRifiuto',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ prenotazione_id: id })
+    }).done(function (res) {
+        if (res.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalRifiuto')).hide();
+            location.reload();
+        } else {
+            alert("Errore: " + res.message);
+            $('#btnAckRifiuto').prop('disabled', false).text('Ho Capito');
+        }
+    }).fail(function () {
+        alert("Errore di connessione al server.");
+        $('#btnAckRifiuto').prop('disabled', false).text('Ho Capito');
     });
 }
 
@@ -203,7 +243,7 @@ function renderizzaPagina() {
         let btnClass = 'btn-primary';
         let btnText = 'Prenota Ora';
 
-        // Disabilita tasti se noleggio attivo O in attesa
+        // Disabilita tasti se noleggio attivo O in attesa O rifiutata (modale aperta)
         if (isNoleggioAttivo) {
             btnAttr = 'disabled';
             btnClass = 'btn-secondary opacity-50';
