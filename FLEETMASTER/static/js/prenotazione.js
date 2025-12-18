@@ -1,5 +1,4 @@
 $(function () {
-
     const params = new URLSearchParams(window.location.search);
     const idVeicolo = params.get('idveicolo');
 
@@ -9,7 +8,6 @@ $(function () {
         alert("Nessun veicolo selezionato!");
         window.location.href = "/";
     }
-
 });
 
 function caricaDatiVeicolo(id) {
@@ -54,13 +52,25 @@ function inviaPrenotazione() {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                const myModal = new bootstrap.Modal(document.getElementById('modalRestituzione'));
+                // Recuperiamo l'elemento modale corretto dal DOM
+                const modalElement = document.getElementById('modalSuccesso');
+                const myModal = new bootstrap.Modal(modalElement);
+
+                // Mostriamo il modale
                 myModal.show();
 
-                window.location.href = "/";
+                // Reindirizziamo l'utente SOLO quando il modale viene chiuso
+                // (sia col tasto OK, sia cliccando fuori, sia con la X)
+                modalElement.addEventListener('hidden.bs.modal', function () {
+                    window.location.href = "/";
+                });
+
             } else {
                 alert("Errore: " + data.message);
             }
         })
-        .catch(err => alert("Errore di connessione"));
+        .catch(err => {
+            console.error("Errore JS:", err);
+            alert("Si è verificato un errore di connessione o nel codice client.");
+        });
 }

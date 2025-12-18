@@ -1,0 +1,54 @@
+/* Badge Stati */
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    /* Trasforma il body in una colonna flessibile */
+    display: flex;
+    flex-direction: column;
+
+    /* Assicura che il body sia alto ALMENO quanto lo schermo */
+    min-height: 100vh;
+}
+
+/* Selezioniamo il contenitore principale (quello che contiene la dashboard).
+   Nel tuo HTML è il div con classe "container" e "py-5".
+   Gli diciamo di "crescere" (flex: 1) per occupare tutto lo spazio vuoto disponibile.
+*/
+.container.py-5 {
+    flex: 1;
+    width: 100%;
+    /* Assicura che rimanga largo */
+}
+
+.badge {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* Tabella */
+.table img {
+    transition: transform 0.2s;
+}
+
+.table tr:hover img {
+    transform: scale(1.1);
+}
+
+.nav-link.active {
+    background-color: transparent !important;
+    border-bottom: 3px solid #0d6efd !important;
+    color: #0d6efd !important;
+}
+
+.nav-link {
+    color: #6c757d;
+    border: none !important;
+}
+
+.nav-link:hover {
+    color: #0d6efd;
+}
