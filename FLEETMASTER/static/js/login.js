@@ -33,11 +33,11 @@ $(function () {
         // Pulisci vecchi alert
         $('#alertPlaceholder').empty();
 
-        const username = $('#username').val().trim();
+        const email = $('#email').val().trim();
         const password = $('#password').val().trim();
 
-        if (!username || !password) {
-            showAlert('Inserisci username e password', 'warning');
+        if (!email || !password) {
+            showAlert('Inserisci email e password', 'warning');
             return;
         }
 
@@ -48,7 +48,7 @@ $(function () {
             url: '/login',
             method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ username, password }),
+            data: JSON.stringify({ email, password }),
             dataType: 'json'
         })
             .done(function (res) {

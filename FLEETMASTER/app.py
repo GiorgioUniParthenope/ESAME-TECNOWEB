@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-from model import db, Utente, TipologiaVeicolo, Veicolo, Prenotazione, LogOperazione
+from model import db, Utente, TipologiaVeicolo, Veicolo, Prenotazione, LogOperazione, Ruolo
 from route.login_required import login_required
 from datetime import datetime
 from werkzeug.security import check_password_hash
@@ -15,8 +15,28 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-# ID del ruolo Admin
-ADMIN_ROLE_ID = 'dcd2d41b-53a6-45d3-9f1a-a2fbef4ad001'
+# --- FUNZIONI UTILITY ---
+
+def get_admin_role_id():
+    """Recupera dinamicamente l'ID del ruolo 'Admin' dal DB."""
+    try:
+        # Assicurati che nel DB il ruolo si chiami esattamente 'Admin' (maiuscola/minuscola contano)
+        ruolo_admin = Ruolo.query.filter_by(nome_ruolo='admin').first() 
+        if ruolo_admin:
+            return str(ruolo_admin.ruolo_id)
+    except Exception as e:
+        print(f"Errore recupero ruolo Admin: {e}")
+    return None
+
+def get_role_name_by_id(role_id):
+    """Recupera il nome del ruolo dato l'ID."""
+    try:
+        ruolo = Ruolo.query.get(role_id)
+        if ruolo:
+            return ruolo.nome_ruolo
+    except:
+        pass
+    return None
 
 # ==========================
 # HOME PAGE
@@ -26,8 +46,11 @@ def index():
     if "user" not in session:
         return redirect(url_for('login_page'))
     
+    admin_id = get_admin_role_id()
+    
     # Se è Admin, mostra il backoffice
-    if session['user'].get('ruolo_id') == ADMIN_ROLE_ID:
+    # Convertiamo entrambi in stringa per sicurezza nel confronto
+    if str(session['user'].get('ruolo_id')) == str(admin_id):
         return render_template('backoffice.html', user=session['user'])
     
     return render_template('index.html', user=session['user'])
@@ -45,10 +68,10 @@ def login_page():
 @app.route('/login', methods=['POST'])
 def login_post():
     data = request.get_json()
-    username = data.get('username')
+    email = data.get('email') 
     password = data.get('password')
 
-    utente = Utente.query.filter_by(nome=username).first()
+    utente = Utente.query.filter_by(email=email).first()
 
     if utente and check_password_hash(utente.password_hash, password):
         session['user'] = utente.to_dict()
@@ -75,23 +98,57 @@ def prenotazione_page():
     return redirect(url_for('login_page'))
 
 # ==========================
-# API UTENTE: GET VEICOLI DISPONIBILI
+# API UTENTE: GET VEICOLI (FILTRATI PER RUOLO E PRIORITÀ TIPOLOGIA)
 # ==========================
 @app.route('/getAllVeicoli', methods=['GET'])
+@login_required 
 def get_veicoli_disponibili():
     try:
-        # Filtra solo quelli disponibili
-        veicoli = Veicolo.query.filter_by(stato_disponibile=True).all()
+        user_role_id = session['user'].get('ruolo_id')
+        role_name = get_role_name_by_id(user_role_id)
+        
+        # Iniziamo la query facendo una JOIN con TipologiaVeicolo
+        # Selezioniamo solo i veicoli disponibili
+        query = db.session.query(Veicolo).join(TipologiaVeicolo).filter(Veicolo.stato_disponibile == True)
+
+        # FILTRO LOGICO IN BASE AL RUOLO E ALLA PRIORITÀ DELLA TIPOLOGIA
+        if role_name == 'admin':
+            # L'Admin vede TUTTO (anche se non ha tipologia, quindi usiamo query base senza join forzata se necessario, 
+            # ma qui assumiamo che tutti i veicoli abbiano una tipologia).
+            # Se vuoi che l'admin veda anche veicoli senza tipologia, dovresti fare una query separata o outerjoin.
+            # Qui mantengo la logica standard: Admin vede tutto ciò che è disponibile.
+            query = Veicolo.query.filter_by(stato_disponibile=True)
+
+        elif role_name == 'impiegato':
+            # Impiegato vede solo Tipologie con priorita = 1
+            query = query.filter(TipologiaVeicolo.priorita == 1)
+
+        elif role_name == 'manager':
+            # Manager vede solo Tipologie con priorita = 2
+            query = query.filter(TipologiaVeicolo.priorita.in_([1, 2]))
+
+        else:
+            # Fallback per ruoli sconosciuti: vede solo priorità 1 (o niente, a scelta)
+            query = query.filter(TipologiaVeicolo.priorita == 1)
+
+        veicoli = query.all()
+        
         veicoli_lista = []
         for v in veicoli:
-            img = getattr(v, 'immagine', None)
+            img = "N/D"
             
-            # Recuperiamo il nome della tipologia se disponibile
+            # Recupero dati tipologia (se serve mostrarli)
             nome_tipologia = "N/D"
+            priorita_tipologia = 0
+            
             if v.tipologia_id:
+                # Nota: se abbiamo fatto la join nella query, l'oggetto v è il Veicolo, 
+                # possiamo accedere alla relazione se configurata nel model, o rifare la query get.
+                # Qui uso get per sicurezza dato che l'oggetto potrebbe venire da query diverse.
                 tipo_obj = TipologiaVeicolo.query.get(v.tipologia_id)
                 if tipo_obj:
                     nome_tipologia = tipo_obj.nome
+                    priorita_tipologia = getattr(tipo_obj, 'priorita', 0)
 
             veicoli_lista.append({
                 "veicolo_id": str(v.veicolo_id),
@@ -100,11 +157,14 @@ def get_veicoli_disponibili():
                 "marca": v.marca,
                 "anno_immatricolazione": v.anno_immatricolazione,
                 "stato_disponibile": v.stato_disponibile,
-                "tipologia": nome_tipologia, 
-                "immagine": img,
+                "tipologia": nome_tipologia,
+                "priorita": priorita_tipologia, # Utile per debug frontend
+                "img": v.url_immagine,
                 "ultima_manutenzione": v.ultima_manutenzione.isoformat() if v.ultima_manutenzione else None
             })
+            
         return jsonify({"success": True, "veicoli": veicoli_lista}), 200
+        
     except Exception as e:
         print("Errore get_veicoli_disponibili:", str(e))
         return jsonify({"success": False, "message": "Errore interno server"}), 500
@@ -159,7 +219,6 @@ def prenota_veicolo():
         )
         db.session.add(log)
 
-        # Commit atomico
         db.session.commit()
         
         return jsonify({"success": True, "message": "Richiesta inviata, in attesa di approvazione"}), 200
@@ -170,32 +229,38 @@ def prenota_veicolo():
         return jsonify({"success": False, "message": str(e)}), 500
 
 # ==========================
-# API ADMIN: GET ALL VEICOLI (Per Backoffice)
+# API ADMIN: GET ALL VEICOLI (Per Backoffice - TUTTI)
 # ==========================
 @app.route('/getAllVeicoliAdmin', methods=['GET'])
 @login_required
 def get_all_veicoli_admin():
-    if session['user'].get('ruolo_id') != ADMIN_ROLE_ID:
+    # Verifica Ruolo Admin Dinamico
+    admin_id = get_admin_role_id()
+    if str(session['user'].get('ruolo_id')) != str(admin_id):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
     
     try:
+        # L'admin vede tutto, usiamo query base
         veicoli = Veicolo.query.all()
         veicoli_lista = []
         for v in veicoli:
             img = getattr(v, 'immagine', None)
             
             nome_tipologia = "N/D"
+            priorita = "N/D"
             if v.tipologia_id:
                 tipo_obj = TipologiaVeicolo.query.get(v.tipologia_id)
                 if tipo_obj:
                     nome_tipologia = tipo_obj.nome
+                    priorita = getattr(tipo_obj, 'priorita', 'N/D')
 
             veicoli_lista.append({
                 "veicolo_id": str(v.veicolo_id),
                 "targa": v.targa,
                 "modello": v.modello,
                 "marca": v.marca,
-                "tipologia": nome_tipologia, 
+                "tipologia": nome_tipologia,
+                "priorita": priorita, # Mostriamo la priorità all'admin prendendola dalla tipologia
                 "immagine": img,
                 "stato_disponibile": v.stato_disponibile
             })
@@ -209,7 +274,8 @@ def get_all_veicoli_admin():
 @app.route('/aggiungiVeicolo', methods=['POST'])
 @login_required
 def aggiungi_veicolo():
-    if session['user'].get('ruolo_id') != ADMIN_ROLE_ID:
+    admin_id = get_admin_role_id()
+    if str(session['user'].get('ruolo_id')) != str(admin_id):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
 
     data = request.get_json()
@@ -219,6 +285,7 @@ def aggiungi_veicolo():
     targa = data.get('targa')
     tipologia_input = data.get('tipologia')
     immagine = data.get('immagine')
+    # Nota: la priorità NON si salva qui, perché dipende dalla tipologia scelta
 
     if not marca or not targa:
         return jsonify({'success': False, 'message': 'Marca e Targa sono obbligatorie'}), 400
@@ -238,11 +305,12 @@ def aggiungi_veicolo():
             tipologia_id=tipologia_id_db,
             stato_disponibile=True,
             anno_immatricolazione=datetime.now().year,
-            ultima_manutenzione=datetime.now()
+            ultima_manutenzione=datetime.now(),
+            url_immagine=immagine
         )
         
         if hasattr(Veicolo, 'immagine'):
-            nuovo_veicolo.immagine = immagine
+            nuovo_veicolo.url_immagine = immagine
 
         db.session.add(nuovo_veicolo)
         db.session.commit()
@@ -257,7 +325,8 @@ def aggiungi_veicolo():
 @app.route('/modificaVeicolo', methods=['POST'])
 @login_required
 def modifica_veicolo():
-    if session['user'].get('ruolo_id') != ADMIN_ROLE_ID:
+    admin_id = get_admin_role_id()
+    if str(session['user'].get('ruolo_id')) != str(admin_id):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
 
     data = request.get_json()
@@ -294,7 +363,8 @@ def modifica_veicolo():
 @app.route('/eliminaVeicolo', methods=['POST'])
 @login_required
 def elimina_veicolo():
-    if session['user'].get('ruolo_id') != ADMIN_ROLE_ID:
+    admin_id = get_admin_role_id()
+    if str(session['user'].get('ruolo_id')) != str(admin_id):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
 
     data = request.get_json()
@@ -316,7 +386,8 @@ def elimina_veicolo():
 @app.route('/getAllPrenotazioniInAttesa', methods=['GET'])
 @login_required
 def get_all_prenotazioni_in_attesa():
-    if session['user'].get('ruolo_id') != ADMIN_ROLE_ID:
+    admin_id = get_admin_role_id()
+    if str(session['user'].get('ruolo_id')) != str(admin_id):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
         
     try:
@@ -348,14 +419,16 @@ def get_all_prenotazioni_in_attesa():
 @app.route('/approvaPrenotazione', methods=['POST'])
 @login_required
 def approva_prenotazione():
-    if session['user'].get('ruolo_id') != ADMIN_ROLE_ID:
+    admin_id = get_admin_role_id()
+    if str(session['user'].get('ruolo_id')) != str(admin_id):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
     return gestisci_stato_prenotazione(request, 'approvata')
 
 @app.route('/rifiutaPrenotazione', methods=['POST'])
 @login_required
 def rifiuta_prenotazione():
-    if session['user'].get('ruolo_id') != ADMIN_ROLE_ID:
+    admin_id = get_admin_role_id()
+    if str(session['user'].get('ruolo_id')) != str(admin_id):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
     return gestisci_stato_prenotazione(request, 'rifiutata')
 
@@ -383,18 +456,15 @@ def gestisci_stato_prenotazione(req, nuovo_stato):
 
 
 # ==========================
-# API UTENTE: GET ULTIMA PRENOTAZIONE (AGGIORNATA)
+# API UTENTE: GET ULTIMA PRENOTAZIONE
 # ==========================
 @app.route('/getLastPrenotazione', methods=['GET'])
 @login_required
 def get_ultima_prenotazione():
     try:
         user_id = session['user']['user_id']
-        
-        # Filtriamo solo gli stati che consideriamo "Attivi" o "Da gestire"
         stati_attivi = ['in attesa', 'approvata', 'prenotata', 'rifiutata']
 
-        # Query migliorata: cerca solo prenotazioni negli stati attivi
         result = db.session.query(Prenotazione, Veicolo)\
             .join(Veicolo, Prenotazione.veicolo_id == Veicolo.veicolo_id)\
             .filter(Prenotazione.user_id == user_id)\
@@ -468,13 +538,10 @@ def restituisci_veicolo():
 @login_required
 def get_veicolo_by_id(veicolo_id):
     try:
-        # Cerca il veicolo tramite ID
         veicolo = Veicolo.query.get(veicolo_id)
-
         if not veicolo:
             return jsonify({"success": False, "message": "Veicolo non trovato"}), 404
 
-        # Costruiamo il dizionario dati
         veicolo_data = {
             "veicolo_id": str(veicolo.veicolo_id),
             "marca": veicolo.marca,
@@ -506,7 +573,7 @@ def get_all_tipologie():
         return jsonify({"success": False, "message": str(e)}), 500
 
 # ==========================
-# API UTENTE: CONFERMA VISIONE RIFIUTO (DELETE + LOG)
+# API UTENTE: CONFERMA VISIONE RIFIUTO
 # ==========================
 @app.route('/confermaVisioneRifiuto', methods=['POST'])
 @login_required
@@ -519,17 +586,14 @@ def conferma_visione_rifiuto():
         if not prenotazione_id:
             return jsonify({'success': False, 'message': 'ID prenotazione mancante'}), 400
 
-        # 1. Recuperiamo la prenotazione
         prenotazione = Prenotazione.query.get(prenotazione_id)
 
         if not prenotazione:
             return jsonify({'success': False, 'message': 'Prenotazione non trovata'}), 404
 
-        # 2. Controllo di sicurezza: l'utente deve essere il proprietario
         if str(prenotazione.user_id) != str(user_id):
             return jsonify({'success': False, 'message': 'Non autorizzato a gestire questa prenotazione'}), 403
 
-        # 3. PREPARIAMO IL LOG (Prima di cancellare, così abbiamo i dati)
         info_veicolo = "Veicolo sconosciuto"
         veicolo = Veicolo.query.get(prenotazione.veicolo_id)
         if veicolo:
@@ -548,11 +612,7 @@ def conferma_visione_rifiuto():
             descrizione=descrizione_log
         )
         db.session.add(nuovo_log)
-
-        # 4. CANCELLIAMO LA PRENOTAZIONE
         db.session.delete(prenotazione)
-
-        # 5. COMMIT ATOMICO (Salva log e cancella prenotazione insieme)
         db.session.commit()
 
         return jsonify({'success': True, 'message': 'Prenotazione rimossa e operazione registrata'}), 200

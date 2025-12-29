@@ -3,11 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
     <title>Login - FleetMaster</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png" />
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+
     <link rel="stylesheet" href="/static/css/login.css" />
   </head>
   <body class="d-flex flex-column min-vh-100">
@@ -17,32 +20,31 @@
       <div class="card login-card shadow-lg">
         <div class="card-body p-4 p-md-5">
           <div class="text-center mb-4">
-            <img src="/static/img/logo.png" alt="FleetMaster Logo" class="logo mb-3" />
-            <h2 class="fw-bold text-dark">Bentornato</h2>
+            <h2 class="fw-bold text-dark mt-3">Bentornato</h2>
             <p class="text-muted small">Accedi alla dashboard di FleetMaster</p>
           </div>
 
           <form id="loginForm">
             <div class="mb-3">
-              <label for="username" class="form-label fw-semibold">Username</label>
+              <label for="email" class="form-label fw-semibold">Email</label>
               <div class="input-group">
-                <span class="input-group-text bg-light border-end-0"><i class="bi bi-person"></i></span>
-                <input type="text" class="form-control border-start-0 ps-0" id="username" placeholder="Inserisci il tuo username" autocomplete="username" required />
+                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                <input type="text" class="form-control" id="email" placeholder="Inserisci il tuo email" autocomplete="email" required />
               </div>
             </div>
 
             <div class="mb-3">
               <label for="password" class="form-label fw-semibold">Password</label>
               <div class="input-group">
-                <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock"></i></span>
-                <input type="password" class="form-control border-start-0 ps-0" id="password" placeholder="Inserisci la password" autocomplete="current-password" required />
+                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                <input type="password" class="form-control" id="password" placeholder="Inserisci la password" autocomplete="current-password" required />
               </div>
             </div>
 
             <div id="alertPlaceholder" class="my-3"></div>
 
             <div class="d-grid mt-4">
-              <button type="submit" id="loginBtn" class="btn btn-primary btn-lg font-weight-bold">
+              <button type="submit" id="loginBtn" class="btn btn-primary btn-lg">
                 <span class="btn-text">Accedi</span>
                 <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
               </button>

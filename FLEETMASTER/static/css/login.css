@@ -1,20 +1,27 @@
+/* static/css/login.css */
+
 :root {
-  --primary-color: #0d6efd; /* Bootstrap Primary Blue standard o personalizzalo */
+  --primary-color: #0d6efd;
   --primary-hover: #0b5ed7;
   --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   --card-bg: #ffffff;
   --input-focus-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
 }
 
-body, html {
+body,
+html {
   height: 100%;
+  margin: 0;
   font-family: 'Inter', 'Roboto', sans-serif;
   background: var(--bg-gradient);
-  background-attachment: fixed; /* Mantiene il gradiente fisso */
+  background-attachment: fixed;
+  /* Mantiene il gradiente fisso */
 }
 
-/* Container principale */
+/* Container principale per centrare */
 .login-container {
+  min-height: 100vh;
+  /* Occupa tutta l'altezza */
   padding: 20px;
 }
 
@@ -25,23 +32,28 @@ body, html {
   border: none;
   border-radius: 16px;
   background-color: var(--card-bg);
-  /* Ombra più sofisticata */
+  /* Ombra sofisticata ripristinata */
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 5px 10px rgba(0, 0, 0, 0.01);
   transition: transform 0.3s ease;
 }
 
 /* Logo Styling */
 .logo {
-  width: 80px;
-  height: 80px;
+  width: 100%;
+  max-width: 200px;
+  height: auto;
   object-fit: contain;
+  display: block;
+  margin: 0 auto 1.5rem auto;
 }
 
-/* Input Group Styling (Input + Icona) */
+/* Input Group Styling */
 .input-group-text {
   background-color: #f8f9fa;
   border-color: #dee2e6;
   color: #6c757d;
+  border-right: none;
+  /* Unisce visivamente all'input */
 }
 
 .form-control {
@@ -49,14 +61,15 @@ body, html {
   border-color: #dee2e6;
   padding-top: 10px;
   padding-bottom: 10px;
+  border-left: none;
+  /* Unisce visivamente all'icona */
 }
 
-/* Focus states per unire visivamente icona e input */
+/* Focus states */
 .form-control:focus {
   background-color: #fff;
   border-color: var(--primary-color);
-  box-shadow: none; /* Rimuoviamo l'ombra default bootstrap */
-  border-left-color: transparent; /* Nasconde il bordo sinistro */
+  box-shadow: none;
 }
 
 .input-group:focus-within .input-group-text {
@@ -94,13 +107,8 @@ body, html {
 @media (max-width: 576px) {
   .login-card {
     max-width: 100%;
-    box-shadow: none; /* Rimuovi ombra su mobile per look "flat" o mantienila */
-    background: transparent; /* O rendi la card bianca full-screen */
-  }
-  
-  .card-body {
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.9);
+    /* Leggermente trasparente su mobile */
   }
 }

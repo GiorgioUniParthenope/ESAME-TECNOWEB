@@ -232,7 +232,7 @@ function renderizzaPagina() {
     const veicoliPagina = tuttiIVeicoli.slice(inizio, fine);
 
     veicoliPagina.forEach(v => {
-        const imgSrc = v.immagine ? v.immagine : 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRWedVLhlY2r49FiiN3A0hnXqN10gs6lvEB4Q&s';
+        const imgSrc = v.img ? v.img : 'https://img.freepik.com/free-psd/cartoon-modern-car-illustration_23-2151227151.jpg';
         const isAvailable = v.stato_disponibile;
 
         let badgeHtml = isAvailable
