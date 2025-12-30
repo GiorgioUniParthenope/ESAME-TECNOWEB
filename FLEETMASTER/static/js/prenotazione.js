@@ -1,6 +1,27 @@
 /* static/js/prenotazione.js */
 
 // ==========================================
+// CONFIGURAZIONE & JWT (ROBUSTA)
+// ==========================================
+const token = localStorage.getItem('jwt_token');
+
+// DEBUG: Controllo in console
+console.log("[Prenotazione] Token:", token);
+
+// 1. Check Token immediato (Stringente)
+if (!token || token === "null" || token === "undefined") {
+    console.warn("Token mancante o invalido. Redirect login.");
+    alert("Devi effettuare il login per prenotare.");
+    window.location.href = '/login';
+}
+
+// 2. Header pronti per Fetch
+const authHeaders = {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + token
+};
+
+// ==========================================
 // INIT & SETUP
 // ==========================================
 
@@ -15,9 +36,11 @@ $(function () {
     if (idVeicolo) {
         loadVeicoloData(idVeicolo);
     } else {
-        // Fallback se ID mancante
         mostraErrore("Nessun veicolo selezionato!", true);
     }
+
+    // Binding bottone invio
+    $('#btnConfermaPrenotazione').click(inviaPrenotazione);
 });
 
 // ==========================================
@@ -28,19 +51,19 @@ function setupDateConstraints() {
     const elStart = document.getElementById('data_inizio');
     const elEnd = document.getElementById('data_fine');
 
-    // Calcolo timestamp locale ISO per il "min" (evita selezione passato)
+    // Calcolo timestamp locale ISO per il "min"
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const nowString = now.toISOString().slice(0, 16);
 
     elStart.min = nowString;
 
-    // Listener cambio data inizio -> aggiorna vincolo data fine
+    // Listener cambio data inizio
     elStart.addEventListener('change', function () {
         if (this.value) {
             elEnd.min = this.value;
 
-            // Reset data fine se incongruente (fine < inizio)
+            // Reset data fine se incongruente
             if (elEnd.value && elEnd.value < this.value) {
                 elEnd.value = "";
                 mostraErrore("La data di fine è stata resettata perché precedente all'inizio.");
@@ -54,8 +77,11 @@ function setupDateConstraints() {
 // ==========================================
 
 function loadVeicoloData(id) {
-    fetch(`/veicolo/${id}`)
-        .then(res => res.json())
+    fetch(`/veicolo/${id}`, { headers: authHeaders })
+        .then(res => {
+            if (res.status === 401) throw new Error("Token scaduto");
+            return res.json();
+        })
         .then(data => {
             if (data.success) {
                 popolaFormVeicolo(data.veicolo);
@@ -63,11 +89,20 @@ function loadVeicoloData(id) {
                 mostraErrore("Errore caricamento veicolo: " + data.message);
             }
         })
-        .catch(err => console.error("Fetch Error:", err));
+        .catch(err => handleApiError(err));
 }
 
 function inviaPrenotazione() {
-    const userId = document.getElementById('user_id').value;
+    // Recupero dati utente dal localStorage
+    let userId = null;
+    try {
+        const userData = JSON.parse(localStorage.getItem('user_data'));
+        userId = userData ? userData.user_id : null;
+        console.log("[Prenotazione] User ID recuperato:", userId);
+    } catch (e) {
+        console.error("Errore parsing user_data", e);
+    }
+
     const veicoloId = document.getElementById('veicolo_id_hidden').value;
     const dataInizio = document.getElementById('data_inizio').value;
     const dataFine = document.getElementById('data_fine').value;
@@ -77,7 +112,7 @@ function inviaPrenotazione() {
     if (!validatePrenotazione(dataInizio, dataFine)) return;
 
     const payload = {
-        user_id: userId,
+        user_id: userId, // Backend usa il token, ma passarlo è safe
         veicolo_id: veicoloId,
         data_inizio: dataInizio,
         data_fine: dataFine,
@@ -87,10 +122,13 @@ function inviaPrenotazione() {
     // Invio Request
     fetch('/prenotaVeicolo', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify(payload)
     })
-        .then(res => res.json())
+        .then(res => {
+            if (res.status === 401) throw new Error("Token scaduto");
+            return res.json();
+        })
         .then(data => {
             if (data.success) {
                 handleSuccessoPrenotazione();
@@ -98,10 +136,7 @@ function inviaPrenotazione() {
                 mostraErrore("Impossibile completare la prenotazione: " + data.message);
             }
         })
-        .catch(err => {
-            console.error("Network Error:", err);
-            mostraErrore("Errore di connessione. Riprova più tardi.");
-        });
+        .catch(err => handleApiError(err));
 }
 
 // ==========================================
@@ -128,7 +163,6 @@ function validatePrenotazione(start, end) {
     const dEnd = new Date(end);
     const dNow = new Date();
 
-    // Check tolleranza passato (1 min buffer)
     if (dStart < dNow.setMinutes(dNow.getMinutes() - 1)) {
         mostraErrore("La data di inizio non può essere nel passato.");
         return false;
@@ -143,19 +177,29 @@ function validatePrenotazione(start, end) {
 }
 
 function handleSuccessoPrenotazione() {
+    // Verifica se la modale esiste nel DOM
     const modalEl = document.getElementById('modalSuccesso');
-    const modal = new bootstrap.Modal(modalEl);
-
-    // Redirect alla home dopo chiusura modal
-    modalEl.addEventListener('hidden.bs.modal', () => {
+    if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            window.location.href = "/";
+        }, { once: true });
+        modal.show();
+    } else {
+        // Fallback se la modale non c'è
+        alert("Prenotazione effettuata con successo!");
         window.location.href = "/";
-    }, { once: true });
-
-    modal.show();
+    }
 }
 
 function mostraErrore(messaggio, redirectOnClose = false) {
     const modalEl = document.getElementById('modalErrore');
+    if (!modalEl) {
+        alert(messaggio);
+        if (redirectOnClose) window.location.href = '/';
+        return;
+    }
+
     document.getElementById('modalErroreTesto').textContent = messaggio;
 
     if (redirectOnClose) {
@@ -165,4 +209,16 @@ function mostraErrore(messaggio, redirectOnClose = false) {
     }
 
     new bootstrap.Modal(modalEl).show();
+}
+
+function handleApiError(err) {
+    console.error("API Error:", err);
+    if (err.message === "Token scaduto") {
+        alert("Sessione scaduta. Rifai il login.");
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user_data');
+        window.location.href = '/login';
+    } else {
+        mostraErrore("Errore di comunicazione col server.");
+    }
 }

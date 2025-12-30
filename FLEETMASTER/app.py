@@ -1,28 +1,34 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, jsonify
 from model import db, Utente, TipologiaVeicolo, Veicolo, Prenotazione, LogOperazione, Ruolo
-from route.login_required import login_required
-from datetime import datetime
+# Aggiunto 'get_jwt' agli import
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
+from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash
 import uuid
 
 app = Flask(__name__)
 
-# Configurazione Base
-app.secret_key = "chiave_super_segreta"
+# Configurazione Base Database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:JwCsDhwQADBtHgMYmzCbPRbgIBwDnvxq@tramway.proxy.rlwy.net:20962/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# ==========================================
+# CONFIGURAZIONE JWT
+# ==========================================
+app.config["JWT_SECRET_KEY"] = "chiave_super_segreta_jwt"
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
+app.config["JWT_TOKEN_LOCATION"] = ["headers"]
+app.config["JWT_HEADER_NAME"] = "Authorization"
+app.config["JWT_HEADER_TYPE"] = "Bearer"
+
 db.init_app(app)
+jwt = JWTManager(app)
 
 # ==========================================
 # UTILITY HELPER
 # ==========================================
 
 def get_admin_role_id():
-    """
-    Recupera l'ID del ruolo 'admin' dal DB.
-    Utile per confronti dinamici senza hardcodare ID numerici.
-    """
     try:
         ruolo_admin = Ruolo.query.filter_by(nome_ruolo='admin').first()
         return str(ruolo_admin.ruolo_id) if ruolo_admin else None
@@ -31,7 +37,6 @@ def get_admin_role_id():
         return None
 
 def get_role_name_by_id(role_id):
-    """Restituisce il nome leggibile del ruolo dato l'ID."""
     try:
         ruolo = Ruolo.query.get(role_id)
         return ruolo.nome_ruolo if ruolo else None
@@ -44,27 +49,22 @@ def get_role_name_by_id(role_id):
 
 @app.route('/')
 def index():
-    if "user" not in session:
-        return redirect(url_for('login_page'))
-    
-    # Routing condizionale: Admin -> Backoffice, Altri -> Home Noleggio
-    admin_id = get_admin_role_id()
-    if str(session['user'].get('ruolo_id')) == str(admin_id):
-        return render_template('backoffice.html', user=session['user'])
-    
-    return render_template('index.html', user=session['user'])
+    return render_template('index.html')
 
-@app.route('/login', methods=['GET'])
+@app.route('/backoffice')
+def backoffice_view():
+    return render_template('backoffice.html')
+
+@app.route('/login')
 def login_page():
     return render_template('login.html')
 
-@app.route('/prenotazione', methods=['GET'])
-@login_required
+@app.route('/prenotazione')
 def prenotazione_page():
-    return render_template('prenotazione.html', user=session['user'])
+    return render_template('prenotazione.html')
 
 # ==========================================
-# AUTHENTICATION API
+# AUTHENTICATION API (FIXED)
 # ==========================================
 
 @app.route('/login', methods=['POST'])
@@ -76,53 +76,57 @@ def login_post():
     utente = Utente.query.filter_by(email=email).first()
 
     if utente and check_password_hash(utente.password_hash, password):
-        # Serializzazione utente in sessione
-        session['user'] = utente.to_dict()
-        return jsonify({"success": True})
+        
+        # Recuperiamo il nome del ruolo per il frontend
+        ruolo = Ruolo.query.get(utente.ruolo_id)
+        nome_ruolo = ruolo.nome_ruolo if ruolo else "unknown"
+
+        user_claims = {
+            "user_id": str(utente.user_id),
+            "ruolo_id": str(utente.ruolo_id),
+            "ruolo_nome": nome_ruolo,  # <--- AGGIUNTO QUESTO
+            "nome": utente.nome,
+            "email": utente.email
+        }
+        
+        token = create_access_token(identity=str(utente.user_id), additional_claims=user_claims)
+        
+        return jsonify({
+            "success": True, 
+            "token": token, 
+            "user": user_claims
+        })
     
     return jsonify({"success": False, "message": "Credenziali errate"}), 401
-
-@app.route('/logout')
-def logout():
-    session.pop('user', None)
-    return redirect(url_for('login_page'))
 
 # ==========================================
 # API USER: BUSINESS LOGIC
 # ==========================================
 
 @app.route('/getAllVeicoli', methods=['GET'])
-@login_required 
+@jwt_required() 
 def get_veicoli_disponibili():
-    """
-    Restituisce i veicoli disponibili filtrati per ruolo utente.
-    - Impiegato: Solo Tipologia Priorità 1
-    - Manager: Priorità 1 e 2
-    - Admin: Tutto
-    """
     try:
-        user_role_id = session['user'].get('ruolo_id')
+        # FIX: Uso get_jwt() per leggere i claims (dizionario)
+        claims = get_jwt()
+        user_role_id = claims.get('ruolo_id')
         role_name = get_role_name_by_id(user_role_id)
         
-        # Query base: veicoli disponibili
         query = db.session.query(Veicolo).join(TipologiaVeicolo).filter(Veicolo.stato_disponibile == True)
 
         if role_name == 'admin':
-            # Override: admin vede tutto, anche senza tipologia strict
             query = Veicolo.query.filter_by(stato_disponibile=True)
         elif role_name == 'impiegato':
             query = query.filter(TipologiaVeicolo.priorita == 1)
         elif role_name == 'manager':
             query = query.filter(TipologiaVeicolo.priorita.in_([1, 2]))
         else:
-            # Default fallback
             query = query.filter(TipologiaVeicolo.priorita == 1)
 
         veicoli = query.all()
         
         veicoli_lista = []
         for v in veicoli:
-            # Fetch dati tipologia safe (se join non presente o oggetto staccato)
             nome_tipo = "N/D"
             priorita_tipo = 0
             if v.tipologia_id:
@@ -151,28 +155,26 @@ def get_veicoli_disponibili():
         return jsonify({"success": False, "message": "Errore interno server"}), 500
 
 @app.route('/prenotaVeicolo', methods=['POST'])
-@login_required
+@jwt_required()
 def prenota_veicolo():
     try:
+        # FIX: Recupero user_id dall'identità stringa o dai claims
+        user_id = get_jwt_identity() 
+        
         data = request.get_json()
-        user_id = data.get('user_id')
         veicolo_id = data.get('veicolo_id')
         
-        if not all([user_id, veicolo_id, data.get('data_inizio'), data.get('data_fine')]):
+        if not all([veicolo_id, data.get('data_inizio'), data.get('data_fine')]):
             return jsonify({"success": False, "message": "Dati mancanti"}), 400
 
-        # Policy: Un utente può avere una sola richiesta attiva alla volta.
-        # Puliamo lo storico precedente (o le richieste vecchie).
         Prenotazione.query.filter_by(user_id=user_id).delete()
 
-        # LOCK OPTIMISTIC/PESSIMISTIC: with_for_update() evita race conditions
         veicolo = Veicolo.query.filter_by(veicolo_id=veicolo_id).with_for_update().first()
 
         if not veicolo or not veicolo.stato_disponibile:
             db.session.rollback()
-            return jsonify({"success": False, "message": "Veicolo non disponibile o inesistente"}), 400
+            return jsonify({"success": False, "message": "Veicolo non disponibile"}), 400
 
-        # Creazione record prenotazione
         prenotazione = Prenotazione(
             user_id=user_id,
             veicolo_id=veicolo_id,
@@ -183,7 +185,6 @@ def prenota_veicolo():
         )
         db.session.add(prenotazione)
 
-        # Log audit
         log = LogOperazione(
             user_id=user_id,
             azione='Richiesta Prenotazione',
@@ -196,17 +197,15 @@ def prenota_veicolo():
 
     except Exception as e:
         db.session.rollback()
-        print(f"Exception prenotazione: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/getLastPrenotazione', methods=['GET'])
-@login_required
+@jwt_required()
 def get_ultima_prenotazione():
     try:
-        user_id = session['user']['user_id']
+        user_id = get_jwt_identity() # Ora restituisce la stringa ID direttamente
         stati_attivi = ['in attesa', 'approvata', 'prenotata', 'rifiutata']
 
-        # Recupera l'ultima prenotazione in uno stato rilevante per l'utente
         res = db.session.query(Prenotazione, Veicolo)\
             .join(Veicolo, Prenotazione.veicolo_id == Veicolo.veicolo_id)\
             .filter(Prenotazione.user_id == user_id)\
@@ -219,7 +218,6 @@ def get_ultima_prenotazione():
 
         prenotazione, veicolo = res
         
-        # Build response payload
         payload = {
             "prenotazione_id": str(prenotazione.prenotazione_id),
             "data_inizio": prenotazione.data_inizio.isoformat(),
@@ -236,22 +234,23 @@ def get_ultima_prenotazione():
         return jsonify({"success": True, "prenotazione": payload}), 200
 
     except Exception as e:
+        print(e)
         return jsonify({"success": False, "message": "Errore server"}), 500
 
 @app.route('/restituisciVeicolo', methods=['POST'])
-@login_required
+@jwt_required()
 def restituisci_veicolo():
     try:
+        user_id = get_jwt_identity()
+        
         data = request.get_json()
         prenotazione = Prenotazione.query.get(data.get('prenotazione_id'))
         
-        # Security Check
         if not prenotazione:
             return jsonify({"success": False, "message": "Non trovato"}), 404
-        if str(prenotazione.user_id) != str(session['user']['user_id']):
+        if str(prenotazione.user_id) != str(user_id):
              return jsonify({"success": False, "message": "Non autorizzato"}), 403
 
-        # State transition
         prenotazione.stato = 'conclusa'
         prenotazione.data_fine = datetime.now()
 
@@ -266,21 +265,17 @@ def restituisci_veicolo():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/confermaVisioneRifiuto', methods=['POST'])
-@login_required
+@jwt_required()
 def conferma_visione_rifiuto():
-    """
-    Gestisce l'ACK dell'utente su una prenotazione rifiutata.
-    La prenotazione viene cancellata fisicamente dopo il log.
-    """
     try:
+        user_id = get_jwt_identity()
+        
         p_id = request.get_json().get('prenotazione_id')
-        user_id = session['user']['user_id']
         prenotazione = Prenotazione.query.get(p_id)
 
         if not prenotazione or str(prenotazione.user_id) != str(user_id):
             return jsonify({'success': False, 'message': 'Errore validazione richiesta'}), 403
 
-        # Info per il log prima della cancellazione
         v = Veicolo.query.get(prenotazione.veicolo_id)
         info_v = f"{v.marca} {v.modello}" if v else "Veicolo rimosso"
         
@@ -303,16 +298,17 @@ def conferma_visione_rifiuto():
 # ==========================================
 
 @app.route('/getAllVeicoliAdmin', methods=['GET'])
-@login_required
+@jwt_required()
 def get_all_veicoli_admin():
-    if str(session['user'].get('ruolo_id')) != str(get_admin_role_id()):
+    # FIX: Uso get_jwt() per leggere ruolo_id
+    claims = get_jwt()
+    if str(claims.get('ruolo_id')) != str(get_admin_role_id()):
         return jsonify({"success": False, "message": "Forbidden"}), 403
     
     try:
         veicoli = Veicolo.query.all()
         lista = []
         for v in veicoli:
-            # Helper per dati tipologia
             t_nome, t_priorita = "N/D", "N/D"
             if v.tipologia_id:
                 tipo = TipologiaVeicolo.query.get(v.tipologia_id)
@@ -334,13 +330,13 @@ def get_all_veicoli_admin():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/getAllPrenotazioniInAttesa', methods=['GET'])
-@login_required
+@jwt_required()
 def get_all_prenotazioni_in_attesa():
-    if str(session['user'].get('ruolo_id')) != str(get_admin_role_id()):
+    claims = get_jwt()
+    if str(claims.get('ruolo_id')) != str(get_admin_role_id()):
         return jsonify({"success": False}), 403
         
     try:
-        # Join esplicita per recuperare dati utente e veicolo in un colpo solo
         res = db.session.query(Prenotazione, Utente, Veicolo)\
             .join(Utente, Prenotazione.user_id == Utente.user_id)\
             .join(Veicolo, Prenotazione.veicolo_id == Veicolo.veicolo_id)\
@@ -354,7 +350,7 @@ def get_all_prenotazioni_in_attesa():
             "modello": v.modello,
             "targa": v.targa,
             "data_inizio": p.data_inizio.isoformat(),
-            "created_at": p.data_inizio.isoformat(), # Usato come data richiesta
+            "created_at": p.data_inizio.isoformat(),
             "note": p.note
         } for p, u, v in res]
         
@@ -365,19 +361,20 @@ def get_all_prenotazioni_in_attesa():
 # --- ADMIN CRUD & WORKFLOW ---
 
 @app.route('/aggiungiVeicolo', methods=['POST'])
-@login_required
+@jwt_required()
 def aggiungi_veicolo():
     return gestione_veicolo_admin(request, 'add')
 
 @app.route('/modificaVeicolo', methods=['POST'])
-@login_required
+@jwt_required()
 def modifica_veicolo():
     return gestione_veicolo_admin(request, 'edit')
 
 @app.route('/eliminaVeicolo', methods=['POST'])
-@login_required
+@jwt_required()
 def elimina_veicolo():
-    if str(session['user'].get('ruolo_id')) != str(get_admin_role_id()):
+    claims = get_jwt()
+    if str(claims.get('ruolo_id')) != str(get_admin_role_id()):
         return jsonify({"success": False}), 403
     
     try:
@@ -393,12 +390,12 @@ def elimina_veicolo():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/approvaPrenotazione', methods=['POST'])
-@login_required
+@jwt_required()
 def approva_prenotazione():
     return workflow_prenotazione(request, 'approvata')
 
 @app.route('/rifiutaPrenotazione', methods=['POST'])
-@login_required
+@jwt_required()
 def rifiuta_prenotazione():
     return workflow_prenotazione(request, 'rifiutata')
 
@@ -407,13 +404,12 @@ def rifiuta_prenotazione():
 # ==========================================
 
 def gestione_veicolo_admin(req, action):
-    """Gestisce logica comune Add/Edit veicolo"""
-    if str(session['user'].get('ruolo_id')) != str(get_admin_role_id()):
+    claims = get_jwt()
+    if str(claims.get('ruolo_id')) != str(get_admin_role_id()):
         return jsonify({"success": False, "message": "Forbidden"}), 403
 
     data = req.get_json()
     try:
-        # Risoluzione Tipologia
         tipologia_id = None
         if data.get('tipologia'):
             t = TipologiaVeicolo.query.filter_by(nome=data.get('tipologia')).first()
@@ -431,7 +427,6 @@ def gestione_veicolo_admin(req, action):
                 ultima_manutenzione=datetime.now(),
                 url_immagine=data.get('immagine')
             )
-            # Compatibilità nome campo
             if hasattr(v, 'immagine'): v.immagine = data.get('immagine')
             db.session.add(v)
 
@@ -454,8 +449,8 @@ def gestione_veicolo_admin(req, action):
         return jsonify({"success": False, "message": str(e)}), 500
 
 def workflow_prenotazione(req, nuovo_stato):
-    """Gestisce approvazione/rifiuto prenotazioni"""
-    if str(session['user'].get('ruolo_id')) != str(get_admin_role_id()):
+    claims = get_jwt()
+    if str(claims.get('ruolo_id')) != str(get_admin_role_id()):
         return jsonify({"success": False}), 403
     
     try:
@@ -464,7 +459,6 @@ def workflow_prenotazione(req, nuovo_stato):
 
         p.stato = nuovo_stato
         
-        # Se approvata, blocca veicolo
         if nuovo_stato == 'approvata':
             v = Veicolo.query.get(p.veicolo_id)
             if v: v.stato_disponibile = False
@@ -480,7 +474,7 @@ def workflow_prenotazione(req, nuovo_stato):
 # ==========================================
 
 @app.route('/veicolo/<veicolo_id>', methods=['GET'])
-@login_required
+@jwt_required()
 def get_veicolo_by_id(veicolo_id):
     try:
         v = Veicolo.query.get(veicolo_id)
@@ -512,4 +506,4 @@ def get_all_tipologie():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')

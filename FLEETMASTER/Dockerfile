@@ -1,28 +1,23 @@
-# Usa un'immagine Python leggera ufficiale
 FROM python:3.11-slim
 
-# Imposta la cartella di lavoro nel container
 WORKDIR /app
 
-# Variabili d'ambiente per evitare file .pyc e output bufferizzato
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Installa le dipendenze di sistema (opzionale, ma utile per pg_config se servisse)
+# Installa dipendenze sistema
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia il file dei requisiti e installa le librerie
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia tutto il resto del codice nel container
 COPY . .
 
-# Espone la porta 5000 (quella di Flask)
+# Non esponiamo la porta 5000 all'esterno, ci penserà Nginx internamente
 EXPOSE 5000
 
-# Comando per avviare l'app
-CMD ["python", "app.py"]
+# Avvia con Gunicorn (4 worker per gestire più richieste)
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]

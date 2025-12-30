@@ -4,6 +4,57 @@ let azioneDaConfermare = null;
 
 // Init & Event Listener
 $(function () {
+
+    /* ==========================================
+       GESTIONE JWT & SICUREZZA ADMIN (ROBUSTA)
+       ========================================== */
+    const token = localStorage.getItem('jwt_token');
+    const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+
+    // DEBUG: Controllo token in console
+    console.log("[Backoffice] Token letto:", token);
+
+    // 1. Check Token immediato
+    if (!token || token === "null" || token === "undefined") {
+        console.warn("Token Admin invalido o assente. Redirect...");
+        window.location.href = '/login';
+        return;
+    }
+
+    // 2. Check Ruolo (Protezione Front-end Extra)
+    // Se un utente normale prova ad accedere qui, lo rispediamo alla Home
+    if (userData.ruolo_nome !== 'admin') {
+        alert("Accesso non autorizzato. Area riservata agli amministratori.");
+        window.location.href = '/';
+        return;
+    }
+
+    // 3. Setup Globale Header Auth (Forzato con beforeSend)
+    $.ajaxSetup({
+        beforeSend: function (xhr) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+        }
+    });
+
+    // 4. Gestore Errori 401/422 (Scadenza Token)
+    $(document).ajaxError(function (event, jqXHR) {
+        // Evita loop se siamo già sul login
+        if (window.location.pathname === '/login') return;
+
+        if (jqXHR.status === 401 || jqXHR.status === 422) {
+            console.error("Sessione Admin scaduta (401).");
+
+            // Pulizia storage
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_data');
+
+            alert("Sessione scaduta. Effettua nuovamente il login.");
+            window.location.href = '/login';
+        }
+    });
+    /* ========================================== */
+
+
     caricaDatiAdmin();
 
     // Binding submit form
@@ -13,7 +64,11 @@ $(function () {
     // Gestione conferma modale generico
     $('#btnConfermaAzione').on('click', function () {
         if (azioneDaConfermare) azioneDaConfermare();
-        $('#modalConferma').modal('hide');
+
+        // Chiusura sicura modale Bootstrap
+        const modalEl = document.getElementById('modalConferma');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modalInstance.hide();
     });
 });
 
@@ -103,8 +158,13 @@ function caricaRichieste() {
         });
         toggleSpinner('#spinnerRequests', '#tableRequests', false);
     }).fail(() => {
+        // Il fail 401 è gestito globalmente, qui gestiamo altri errori
         toggleSpinner('#spinnerRequests', '#tableRequests', false);
-        mostraModalEsito("Errore", "Impossibile caricare le richieste.", false);
+        // Evitiamo modale errore se è un redirect da 401
+        const t = localStorage.getItem('jwt_token');
+        if (t && t !== "null" && t !== "undefined") {
+            mostraModalEsito("Errore", "Impossibile caricare le richieste.", false);
+        }
     });
 }
 
@@ -187,7 +247,11 @@ function inviaAggiungiVeicolo() {
         data: JSON.stringify(dati)
     }).done(res => {
         if (res.success) {
-            $('#modalAddCar').modal('hide');
+            // Usa istanza Bootstrap per chiudere modale in modo sicuro
+            const modalEl = document.getElementById('modalAddCar');
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
+
             $('#addCarForm')[0].reset();
             mostraModalEsito("Fatto", "Veicolo aggiunto.", true);
             caricaFlotta();
@@ -226,7 +290,10 @@ function inviaModificaVeicolo() {
         data: JSON.stringify(dati)
     }).done(res => {
         if (res.success) {
-            bootstrap.Modal.getInstance(document.getElementById('modalEditCar')).hide();
+            const modalEl = document.getElementById('modalEditCar');
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
+
             mostraModalEsito("Modificato", "Dati aggiornati.", true);
             caricaFlotta();
         } else {

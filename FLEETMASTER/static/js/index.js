@@ -4,7 +4,7 @@
 const ELEMENTI_PER_PAGINA = 6;
 let tuttiIVeicoli = [];
 let paginaCorrente = 1;
-let isNoleggioAttivo = false; // Flag per inibire nuove prenotazioni se utente occupato
+let isNoleggioAttivo = false;
 
 // ID temporanei per modali
 let idRestituzione = null;
@@ -12,6 +12,54 @@ let idRifiuto = null;
 
 // Init & Event Binding
 $(function () {
+
+    /* ==========================================
+       GESTIONE JWT & SICUREZZA (ROBUSTA)
+       ========================================== */
+    const token = localStorage.getItem('jwt_token');
+
+    // 1. Check Token (Se manca, vai al login)
+    if (!token || token === "null" || token === "undefined") {
+        window.location.href = '/login';
+        return;
+    }
+
+    // ============================================================
+    // 2. CHECK RUOLO: SE SEI ADMIN, VAI AL BACKOFFICE!
+    // ============================================================
+    const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+    
+    if (userData.ruolo_nome === 'admin') {
+        console.log("Admin rilevato in Home. Reindirizzamento al Backoffice...");
+        window.location.href = '/backoffice';
+        return; // Ferma tutto il resto dello script
+    }
+    // ============================================================
+
+
+    // 3. Configura jQuery per Auth Header
+    $.ajaxSetup({
+        beforeSend: function (xhr) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+        }
+    });
+
+    // 4. Gestore Globale Errori (Token Scaduto)
+    $(document).ajaxError(function (event, jqXHR) {
+        if (window.location.pathname === '/login') return;
+
+        if (jqXHR.status === 401 || jqXHR.status === 422) {
+            console.error("Sessione scaduta.");
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_data');
+            alert("La sessione è scaduta. Effettua nuovamente il login.");
+            window.location.href = '/login';
+        }
+    });
+    /* ========================================== */
+
+
+    // Se arrivo qui, sono un Utente Standard. Carico la Home.
     checkStatoUtente();
 
     // Handler conferma restituzione
@@ -34,7 +82,7 @@ function checkStatoUtente() {
         url: '/getLastPrenotazione',
         method: 'GET',
         dataType: 'json'
-    }).always(function (res) {
+    }).done(function (res) {
 
         // Reset stato iniziale
         isNoleggioAttivo = false;
@@ -43,32 +91,33 @@ function checkStatoUtente() {
         if (res && res.success && res.prenotazione) {
             const p = res.prenotazione;
 
-            // Routing stato prenotazione
             if (['prenotata', 'approvata'].includes(p.stato)) {
-                // Noleggio in corso -> Card Verde
                 isNoleggioAttivo = true;
                 renderPrenotazioneAttiva(p);
             }
             else if (p.stato === 'in attesa') {
-                // Pending approvazione -> Card Gialla
                 isNoleggioAttivo = true;
                 renderPrenotazioneInAttesa(p);
             }
             else if (p.stato === 'rifiutata') {
-                // Rifiutata -> Blocco UI + Modale Ack
                 isNoleggioAttivo = true;
                 idRifiuto = p.prenotazione_id;
-                new bootstrap.Modal('#modalRifiuto').show();
+                setTimeout(() => {
+                    new bootstrap.Modal('#modalRifiuto').show();
+                }, 100);
             }
         }
 
-        // Caricamento asincrono lista veicoli
         caricaVeicoli();
     });
 }
 
 function caricaVeicoli() {
-    $.get('/getAllVeicoli', function (res) {
+    $.ajax({
+        url: '/getAllVeicoli',
+        method: 'GET',
+        dataType: 'json'
+    }).done(function (res) {
         if (!res.success) return;
         tuttiIVeicoli = res.veicoli;
         paginaCorrente = 1;
@@ -82,8 +131,6 @@ function caricaVeicoli() {
 
 function renderizzaGrigliaVeicoli() {
     const container = $("#containerVeicoli").empty();
-
-    // Paginazione client-side
     const inizio = (paginaCorrente - 1) * ELEMENTI_PER_PAGINA;
     const veicoliPagina = tuttiIVeicoli.slice(inizio, inizio + ELEMENTI_PER_PAGINA);
 
@@ -91,12 +138,10 @@ function renderizzaGrigliaVeicoli() {
         const imgSrc = v.img || 'https://img.freepik.com/free-psd/cartoon-modern-car-illustration_23-2151227151.jpg';
         const isAvailable = v.stato_disponibile;
 
-        // Setup badge stato
         const badgeHtml = isAvailable
             ? `<span class="status-badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Disponibile</span>`
             : `<span class="status-badge bg-secondary text-white"><i class="bi bi-x-circle me-1"></i>Occupato</span>`;
 
-        // Setup bottone azione (Logica inibizione)
         let btnProps = { class: 'btn-primary', text: 'Prenota Ora', attr: '' };
 
         if (isNoleggioAttivo) {
@@ -143,18 +188,15 @@ function renderizzaPaginazione() {
 
     if (totalePagine <= 1) return;
 
-    // Helper generazione link
     const createLink = (page, text, disabled = false, active = false) => `
         <li class="page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}">
             <a class="page-link shadow-none" href="#" onclick="cambiaPagina(${page}); return false;">${text}</a>
         </li>`;
 
     navContainer.append(createLink(paginaCorrente - 1, 'Precedente', paginaCorrente === 1));
-
     for (let i = 1; i <= totalePagine; i++) {
         navContainer.append(createLink(i, i, false, i === paginaCorrente));
     }
-
     navContainer.append(createLink(paginaCorrente + 1, 'Successiva', paginaCorrente === totalePagine));
 }
 
@@ -173,7 +215,7 @@ function cambiaPagina(nuovaPagina) {
 
 function renderPrenotazioneAttiva(prenotazione) {
     const v = prenotazione.veicolo;
-    const imgUrl = v.img || 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRWedVLhlY2r49FiiN3A0hnXqN10gs6lvEB4Q&s';
+    const imgUrl = v.img || 'https://img.freepik.com/free-psd/cartoon-modern-car-illustration_23-2151227151.jpg';
 
     const html = `
         <div class="active-booking-card p-0 overflow-hidden mb-5 border border-primary border-opacity-25 shadow-sm rounded-4">
@@ -227,7 +269,7 @@ function renderPrenotazioneAttiva(prenotazione) {
 
 function renderPrenotazioneInAttesa(prenotazione) {
     const v = prenotazione.veicolo;
-    const imgUrl = v.img || 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRWedVLhlY2r49FiiN3A0hnXqN10gs6lvEB4Q&s';
+    const imgUrl = v.img || 'https://img.freepik.com/free-psd/cartoon-modern-car-illustration_23-2151227151.jpg';
 
     const html = `
         <div class="active-booking-card p-0 overflow-hidden mb-5 border border-warning border-opacity-50 shadow-sm rounded-4">

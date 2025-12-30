@@ -1,56 +1,51 @@
 <header class="bg-primary text-white py-3">
     <div class="container d-flex justify-content-between align-items-center">
-        
+
         <a href="/" class="navbar-brand fw-bold text-white fs-4" style="text-decoration: none;">
             FLEETMASTER
         </a>
 
-        {% if user %}
-            
-            {% set iniziale = user.nome[0]|upper if user.nome else 'U' %}
-            
-            {% set nome_ruolo = 'Amministratore' if user.ruolo_id == 'dcd2d41b-53a6-45d3-9f1a-a2fbef4ad001' else 'Utente Standard' %}
+        <div id="nav-user-section" class="dropdown d-none">
 
-            <div class="dropdown">
-                
-                <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" 
-                   id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    
-                    <div class="rounded-circle bg-white text-primary d-flex justify-content-center align-items-center fw-bold shadow-sm" 
-                         style="width: 40px; height: 40px; margin-right: 8px;">
-                        {{ iniziale }}
-                    </div>
-                </a>
+            <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle"
+                id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="rounded-circle bg-white text-primary d-flex justify-content-center align-items-center fw-bold shadow-sm"
+                    style="width: 40px; height: 40px; margin-right: 8px;">
+                    <span id="header-initial">U</span>
+                </div>
+            </a>
 
-                <ul class="dropdown-menu dropdown-menu-end shadow p-3" aria-labelledby="userDropdown" style="min-width: 250px;">
-                    
-                    <li class="mb-3 text-center">
-                        <div class="fw-bold fs-5 text-dark">
-                            {{ user.nome }} {{ user.cognome }}
-                        </div>
-                        <div class="text-muted small">{{ user.email }}</div>
-                    </li>
+            <ul class="dropdown-menu dropdown-menu-end shadow p-3" aria-labelledby="userDropdown"
+                style="min-width: 250px;">
+                <li class="mb-3 text-center">
+                    <div class="fw-bold fs-5 text-dark" id="header-fullname">Utente</div>
+                    <div class="text-muted small" id="header-email">email@example.com</div>
+                </li>
 
-                    <li class="mb-3">
-                        <label class="form-label small text-muted fw-bold">Ruolo Attuale</label>
-                        <input type="text" class="form-control form-control-sm bg-light" 
-                               value="{{ nome_ruolo }}" 
-                               disabled readonly>
-                    </li>
+                <li class="mb-3">
+                    <label class="form-label small text-muted fw-bold">Ruolo Attuale</label>
+                    <input type="text" class="form-control form-control-sm bg-light" id="header-role"
+                        value="Utente Standard" disabled readonly>
+                </li>
 
-                    <li><hr class="dropdown-divider"></li>
+                <li>
+                    <hr class="dropdown-divider">
+                </li>
 
-                    <li>
-                        <a class="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2" href="/logout">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0z"/>
-                                <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-                            </svg>
-                            Esci
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        {% endif %} 
+                <li>
+                    <button id="header-btn-logout"
+                        class="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                            viewBox="0 0 16 16">
+                            <path fill-rule="evenodd"
+                                d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0z" />
+                            <path fill-rule="evenodd"
+                                d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z" />
+                        </svg>
+                        Esci
+                    </button>
+                </li>
+            </ul>
         </div>
+    </div>
 </header>

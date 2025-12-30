@@ -1,108 +1,180 @@
 # 🚗 FleetMaster
+
 ### Corporate Fleet Management System
 
-**FleetMaster** is a digital platform designed to simplify and streamline internal corporate fleet management. 
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Docker-blue)
+![Architecture](https://img.shields.io/badge/architecture-Microservices-purple)
 
-The system coordinates the activities of Administrators, Managers, and Employees, offering specific functionalities based on the user's role. It replaces manual, redundant processes with a centralized digital workflow, ensuring clear approval flows and optimized vehicle availability.
+**FleetMaster** is a digital platform designed to simplify and streamline internal corporate fleet management.
 
----
-
-## 🎯 Key Objectives
-
-* **Digitization:** Eliminate manual processes (paper, excel, emails) for vehicle booking.
-* **Role-Based Access Control (RBAC):** Manage users with differentiated privileges (Admin, Manager, Employee).
-* **Optimization:** Maximize vehicle utilization and ensure transparent tracking of approvals and returns.
+The system coordinates the activities of **Administrators**, **Managers**, and **Employees**, offering role-based functionalities. It replaces manual, redundant processes with a centralized digital workflow, ensuring clear approval flows and optimized vehicle availability.
 
 ---
 
-## 👥 User Roles & Use Cases
+## 📋 Exam Requirements Compliance
 
-FleetMaster features a strict hierarchy to ensure the right vehicles are available to the right people.
+This project has been engineered to **strictly follow** the TechWeb exam guidelines regarding architecture and environment:
 
-### 1. Administrator (Admin)
-The **Admin** has full control over the platform. They do not book cars for themselves but manage the fleet and requests.
-* **Dashboard:** Access to the "Backoffice" view.
-* **Fleet Management:** Add, edit, or delete vehicles (CRUD).
-* **Approval Workflow:** View pending requests and decide whether to **Approve** or **Reject** them.
-* **Oversight:** Monitor the status of all vehicles (Available/Occupied).
+* ✅ **NO Windows / NO XAMPP**: The application is fully containerized using **Docker**. Regardless of the host OS, the runtime environment is **Linux** (Debian/Alpine).
+* ✅ **Production-grade architecture (L.N.P.P. Stack)**:
 
-### 2. Manager
-The **Manager** represents mid-level management.
-* **Vehicle Access:** Can book **Standard** vehicles (Priority 1) AND **Premium/Executive** vehicles (Priority 2).
-* **Booking:** Can create booking requests including date ranges and notes.
-* **History:** View their own booking history and status.
-
-### 3. Employee (Impiegato)
-The **Employee** represents the standard staff member.
-* **Vehicle Access:** Can *only* book **Standard** vehicles (Priority 1). Premium vehicles are filtered out from their view.
-* **Booking:** Simple booking interface for daily operational needs.
-
----
-
-## 🔐 Demo Credentials
-
-Use the following accounts to test the different perspectives of the application.
-
-> **Note:** The password for all demo accounts is set to: `password` 
-> *(Assuming the hash provided corresponds to a standard test password. If different, please update)*.
-
-| Role | Name | Email | Permissions |
-| :--- | :--- | :--- | :--- |
-| **👑 Admin** | **Giorgio Napolitano** | `napolitano@ministro.it` | Full Backoffice Access, Approve/Reject, CRUD Vehicles |
-| **💼 Manager** | **Giuseppe Emiliano** | `emilix@utente.it` | Book Priority 1 & 2 Vehicles (Standard + Premium) |
-| **👤 Employee** | **Mariano Luciani** | `mariano@utente.it` | Book Priority 1 Vehicles Only (Standard) |
+  * **OS**: Linux (via Docker containers)
+  * **Web Server**: Nginx (Reverse Proxy)
+  * **App Server**: Gunicorn (WSGI)
+  * **Language**: Python (Flask)
+  * **Database**: PostgreSQL (Cloud instance via Railway)
 
 ---
 
 ## 🛠️ Technology Stack
 
-* **Backend:** Python (Flask)
-* **Database:** PostgreSQL (via SQLAlchemy ORM)
-* **Frontend:** HTML5, Bootstrap 5, jQuery
-* **Authentication:** Session-based with Scrypt hashing
+| Component        | Technology              | Description                            |
+| ---------------- | ----------------------- | -------------------------------------- |
+| Containerization | Docker & Docker Compose | Linux-based environment orchestration  |
+| Web Server       | Nginx                   | Reverse proxy and HTTP handling        |
+| App Server       | Gunicorn                | Production WSGI server                 |
+| Backend          | Python / Flask          | Core application logic and APIs        |
+| Database         | PostgreSQL              | Relational database via SQLAlchemy ORM |
+| Frontend         | Bootstrap 5 & jQuery    | Responsive UI/UX                       |
 
 ---
 
 ## 🚀 Installation & Setup
 
-1.  **Clone the repository:**
-    ```bash
-    git clone [https://github.com/your-username/fleetmaster.git](https://github.com/your-username/fleetmaster.git)
-    cd fleetmaster
-    ```
+### 1. Prerequisites
 
-2.  **Create a Virtual Environment:**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
-    ```
+* **Docker Desktop** installed and running
+* Active internet connection (for remote PostgreSQL database)
 
-3.  **Install Dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+### 2. Start the Environment
 
-4.  **Configuration:**
-    Ensure the database URI in `app.py` is configured correctly (currently set to Railway PostgreSQL).
+From the project root directory, run:
 
-5.  **Run the Application:**
-    ```bash
-    python app.py
-    ```
-    The app will be available at `http://127.0.0.1:5000`.
+```bash
+docker compose up --build
+```
+
+This command:
+
+* Builds the Linux-based Docker images
+* Installs Python dependencies from `requirements.txt`
+* Starts the **Nginx** and **Web (Flask + Gunicorn)** containers
+
+### 3. Access the Application
+
+Once the containers are running, open your browser and visit:
+
+👉 **[http://localhost](http://localhost)**
+
+The application is exposed on **port 80** via Nginx.
+
+---
+
+## 👥 User Roles & Use Cases
+
+FleetMaster enforces **Role-Based Access Control (RBAC)** to ensure correct vehicle usage.
+
+### 👑 Administrator (Admin)
+
+**Access**: Backoffice Dashboard
+
+**Capabilities**:
+
+* Full CRUD on fleet vehicles
+* Approve or reject booking requests
+* Monitor real-time vehicle status (Available / Occupied)
+
+---
+
+### 💼 Manager
+
+**Privileges**:
+
+* Can book **Standard (Priority 1)** and **Premium/Executive (Priority 2)** vehicles
+
+**Capabilities**:
+
+* Request vehicles for specific date ranges
+* View personal booking history
+
+---
+
+### 👤 Employee (Impiegato)
+
+**Privileges**:
+
+* Can book **Standard vehicles only (Priority 1)**
+* Premium vehicles are hidden
+
+**Capabilities**:
+
+* Simple booking interface for daily operational needs
+
+---
+
+## 🔐 Demo Credentials
+
+Use the following accounts to test the platform:
+
+| Role     | Name               | Email                                                   | Password | Permissions                |
+| -------- | ------------------ | ------------------------------------------------------- | -------- | -------------------------- |
+| Admin    | Giorgio Napolitano | [napolitano@ministro.it](mailto:napolitano@ministro.it) | password | Backoffice, Approve/Reject |
+| Manager  | Giuseppe Emiliano  | [emilix@utente.it](mailto:emilix@utente.it)             | password | Priority 1 & 2 Vehicles    |
+| Employee | Mariano Luciani    | [mariano@utente.it](mailto:mariano@utente.it)           | password | Priority 1 Vehicles Only   |
+
+> ⚠️ **Note**: Passwords are set to `password` for testing purposes only, based on the provided hashes.
 
 ---
 
 ## 🔄 Booking Workflow
 
-1.  **Request:** An **Employee** or **Manager** logs in, selects a vehicle, dates, and adds notes. The request state becomes `In Attesa` (Pending).
-2.  **Review:** The **Admin** sees the request in the Backoffice.
-    * *Approve:* The vehicle becomes `Occupied`.
-    * *Reject:* The user is notified (modal on next login).
-3.  **Active Rental:** If approved, the user sees the "Active Rental" card.
-4.  **Return:** The user clicks "Return Vehicle". The vehicle status resets to `Available`.
+1. **Request**
+   Employee or Manager selects a vehicle, date range, and notes. Status becomes **In Attesa (Pending)**.
+
+2. **Review**
+   Admin reviews the request in the Backoffice dashboard.
+
+3. **Approval / Rejection**
+
+   * **Approved**: Vehicle status becomes **Occupied**
+   * **Rejected**: User is notified via modal on next login
+
+4. **Active Rental**
+   Approved users see an **Active Rental** card on their dashboard.
+
+5. **Return**
+   User clicks **Return Vehicle** → vehicle status resets to **Available**.
 
 ---
 
-### ⚖️ License
-This project is for educational and internal corporate use.
+## 📂 Project Structure
+
+```plaintext
+/fleetmaster
+├── nginx/
+│   └── nginx.conf       # Nginx reverse proxy configuration
+├── route/               # Helper modules (e.g. login_required)
+├── static/              # CSS, JS, images
+├── templates/           # Jinja2 HTML templates
+├── app.py               # Main Flask application
+├── Dockerfile           # Python/Linux image definition
+├── docker-compose.yml   # Services orchestration
+├── requirements.txt     # Python dependencies
+├── LICENSE              # MIT License
+└── README.md            # Project documentation
+```
+
+---
+
+## ⚖️ License
+
+This project is released under the **MIT License**.
+
+Copyright (c) 2025 Giorgio Cappiello
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

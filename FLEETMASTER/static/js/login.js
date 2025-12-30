@@ -5,6 +5,13 @@
 // ==========================================
 
 $(function () {
+    // Controllo preventivo: Se ho già un token valido, vado alla pagina giusta
+    // (Opzionale: potresti voler controllare il ruolo anche qui per reindirizzare meglio)
+    if (localStorage.getItem('jwt_token')) {
+        window.location.href = '/';
+        return;
+    }
+
     // Binding submit form di login
     $('#loginForm').on('submit', function (e) {
         e.preventDefault();
@@ -33,17 +40,39 @@ $(function () {
         })
             .done(function (res) {
                 if (res.success) {
-                    // Login OK: Redirect alla dashboard
-                    window.location.href = '/';
+                    // ==================================================
+                    // 🟢 GESTIONE LOGIN & REINDIRIZZAMENTO
+                    // ==================================================
+
+                    // 1. Salva il token nel browser
+                    localStorage.setItem('jwt_token', res.token);
+
+                    // 2. Salva i dati utente
+                    localStorage.setItem('user_data', JSON.stringify(res.user));
+
+                    // 3. SMISTAMENTO IN BASE AL RUOLO
+                    // Controlla il campo 'ruolo_nome' inviato dal backend
+                    if (res.user.ruolo_nome === 'admin') {
+                        // Gli Admin vanno al Backoffice
+                        window.location.href = '/backoffice_view';
+                    } else {
+                        // Gli altri (Manager/Impiegati) vanno alla Home
+                        window.location.href = '/';
+                    }
+
                 } else {
                     // Errore credenziali o lato server
                     showAlert(res.message || 'Credenziali non valide');
                     toggleLoading(false);
                 }
             })
-            .fail(function () {
-                // Gestione errori di rete
-                showAlert('Errore di connessione al server, riprova.');
+            .fail(function (jqXHR) {
+                // Gestione errori di rete o errori server non gestiti
+                let msg = 'Errore di connessione al server.';
+                if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
+                    msg = jqXHR.responseJSON.message;
+                }
+                showAlert(msg);
                 toggleLoading(false);
             });
     });
