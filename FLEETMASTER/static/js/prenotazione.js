@@ -1,124 +1,90 @@
+/* static/js/prenotazione.js */
+
+// ==========================================
+// INIT & SETUP
+// ==========================================
+
 $(function () {
     const params = new URLSearchParams(window.location.search);
     const idVeicolo = params.get('idveicolo');
 
-    // 1. Inizializza i vincoli sulle date
-    impostaVincoliDate();
+    // Inizializzazione vincoli input date
+    setupDateConstraints();
 
+    // Check parametro obbligatorio
     if (idVeicolo) {
-        caricaDatiVeicolo(idVeicolo);
+        loadVeicoloData(idVeicolo);
     } else {
-        // Usa modale e redirige alla chiusura
-        mostraErrore("Nessun veicolo selezionato!");
-        const modalEl = document.getElementById('modalErrore');
-        modalEl.addEventListener('hidden.bs.modal', function () {
-            window.location.href = "/";
-        }, { once: true });
+        // Fallback se ID mancante
+        mostraErrore("Nessun veicolo selezionato!", true);
     }
 });
 
-/**
- * Funzione helper per mostrare errori con la modale Bootstrap
- */
-function mostraErrore(messaggio) {
-    const modalEl = document.getElementById('modalErrore');
-    const modalText = document.getElementById('modalErroreTesto');
+// ==========================================
+// LOGICA DATE & VALIDAZIONE
+// ==========================================
 
-    modalText.textContent = messaggio;
+function setupDateConstraints() {
+    const elStart = document.getElementById('data_inizio');
+    const elEnd = document.getElementById('data_fine');
 
-    const modal = new bootstrap.Modal(modalEl);
-    modal.show();
-}
-
-/**
- * Gestisce la logica delle date:
- * - Data Inizio non può essere nel passato.
- * - Data Fine non può essere prima della Data Inizio.
- */
-function impostaVincoliDate() {
-    const dataInizioInput = document.getElementById('data_inizio');
-    const dataFineInput = document.getElementById('data_fine');
-
-    // Funzione helper per ottenere la data attuale in formato 'YYYY-MM-DDTHH:mm'
+    // Calcolo timestamp locale ISO per il "min" (evita selezione passato)
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const nowString = now.toISOString().slice(0, 16);
 
-    // Imposta il minimo per la data inizio
-    dataInizioInput.min = nowString;
+    elStart.min = nowString;
 
-    // EVENT LISTENER: Quando cambia la data inizio
-    dataInizioInput.addEventListener('change', function () {
+    // Listener cambio data inizio -> aggiorna vincolo data fine
+    elStart.addEventListener('change', function () {
         if (this.value) {
-            // La data fine deve essere almeno uguale alla data inizio
-            dataFineInput.min = this.value;
+            elEnd.min = this.value;
 
-            // Reset se data fine non valida
-            if (dataFineInput.value && dataFineInput.value < this.value) {
-                dataFineInput.value = "";
-                mostraErrore("La data di fine è stata resettata perché precedente alla data di inizio.");
+            // Reset data fine se incongruente (fine < inizio)
+            if (elEnd.value && elEnd.value < this.value) {
+                elEnd.value = "";
+                mostraErrore("La data di fine è stata resettata perché precedente all'inizio.");
             }
         }
     });
 }
 
-function caricaDatiVeicolo(id) {
+// ==========================================
+// API CALLS (FETCH)
+// ==========================================
+
+function loadVeicoloData(id) {
     fetch(`/veicolo/${id}`)
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
             if (data.success) {
-                const v = data.veicolo;
-                document.getElementById('marca').value = v.marca;
-                document.getElementById('modello').value = v.modello;
-                document.getElementById('targa').value = v.targa;
-                document.getElementById('tipologia').value = v.tipologia;
-                document.getElementById('anno').value = v.anno;
-                document.getElementById('ultima_manutenzione').value = v.ultima_manutenzione;
-                document.getElementById('veicolo_id_hidden').value = v.veicolo_id;
+                popolaFormVeicolo(data.veicolo);
             } else {
-                mostraErrore("Errore nel caricamento del veicolo: " + data.message);
+                mostraErrore("Errore caricamento veicolo: " + data.message);
             }
         })
-        .catch(err => console.error("Errore fetch:", err));
+        .catch(err => console.error("Fetch Error:", err));
 }
 
 function inviaPrenotazione() {
     const userId = document.getElementById('user_id').value;
     const veicoloId = document.getElementById('veicolo_id_hidden').value;
-    const dataInizioVal = document.getElementById('data_inizio').value;
-    const dataFineVal = document.getElementById('data_fine').value;
+    const dataInizio = document.getElementById('data_inizio').value;
+    const dataFine = document.getElementById('data_fine').value;
     const note = document.getElementById('note').value;
 
-    // 1. Controllo campi vuoti
-    if (!dataInizioVal || !dataFineVal) {
-        mostraErrore("Inserisci le date di inizio e fine per proseguire.");
-        return;
-    }
-
-    // 2. Controllo logico date
-    const dInizio = new Date(dataInizioVal);
-    const dFine = new Date(dataFineVal);
-    const dOggi = new Date();
-
-    // Tolleranza di 1 minuto per evitare problemi con "adesso"
-    if (dInizio < dOggi.setMinutes(dOggi.getMinutes() - 1)) {
-        mostraErrore("La data di inizio non può essere nel passato.");
-        return;
-    }
-
-    if (dFine <= dInizio) {
-        mostraErrore("La data di restituzione deve essere successiva alla data di ritiro.");
-        return;
-    }
+    // Validazione Client-Side
+    if (!validatePrenotazione(dataInizio, dataFine)) return;
 
     const payload = {
         user_id: userId,
         veicolo_id: veicoloId,
-        data_inizio: dataInizioVal,
-        data_fine: dataFineVal,
+        data_inizio: dataInizio,
+        data_fine: dataFine,
         note: note
     };
 
+    // Invio Request
     fetch('/prenotaVeicolo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -127,19 +93,76 @@ function inviaPrenotazione() {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                const modalElement = document.getElementById('modalSuccesso');
-                const myModal = new bootstrap.Modal(modalElement);
-                myModal.show();
-
-                modalElement.addEventListener('hidden.bs.modal', function () {
-                    window.location.href = "/";
-                });
+                handleSuccessoPrenotazione();
             } else {
                 mostraErrore("Impossibile completare la prenotazione: " + data.message);
             }
         })
         .catch(err => {
-            console.error("Errore JS:", err);
-            mostraErrore("Si è verificato un errore di connessione. Riprova più tardi.");
+            console.error("Network Error:", err);
+            mostraErrore("Errore di connessione. Riprova più tardi.");
         });
+}
+
+// ==========================================
+// UI & HELPERS
+// ==========================================
+
+function popolaFormVeicolo(v) {
+    document.getElementById('marca').value = v.marca;
+    document.getElementById('modello').value = v.modello;
+    document.getElementById('targa').value = v.targa;
+    document.getElementById('tipologia').value = v.tipologia;
+    document.getElementById('anno').value = v.anno;
+    document.getElementById('ultima_manutenzione').value = v.ultima_manutenzione;
+    document.getElementById('veicolo_id_hidden').value = v.veicolo_id;
+}
+
+function validatePrenotazione(start, end) {
+    if (!start || !end) {
+        mostraErrore("Inserisci le date di inizio e fine per proseguire.");
+        return false;
+    }
+
+    const dStart = new Date(start);
+    const dEnd = new Date(end);
+    const dNow = new Date();
+
+    // Check tolleranza passato (1 min buffer)
+    if (dStart < dNow.setMinutes(dNow.getMinutes() - 1)) {
+        mostraErrore("La data di inizio non può essere nel passato.");
+        return false;
+    }
+
+    if (dEnd <= dStart) {
+        mostraErrore("La data di restituzione deve essere successiva al ritiro.");
+        return false;
+    }
+
+    return true;
+}
+
+function handleSuccessoPrenotazione() {
+    const modalEl = document.getElementById('modalSuccesso');
+    const modal = new bootstrap.Modal(modalEl);
+
+    // Redirect alla home dopo chiusura modal
+    modalEl.addEventListener('hidden.bs.modal', () => {
+        window.location.href = "/";
+    }, { once: true });
+
+    modal.show();
+}
+
+function mostraErrore(messaggio, redirectOnClose = false) {
+    const modalEl = document.getElementById('modalErrore');
+    document.getElementById('modalErroreTesto').textContent = messaggio;
+
+    if (redirectOnClose) {
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            window.location.href = "/";
+        }, { once: true });
+    }
+
+    new bootstrap.Modal(modalEl).show();
 }
