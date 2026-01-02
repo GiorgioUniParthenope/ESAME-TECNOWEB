@@ -124,3 +124,10 @@ body {
     border-radius: var(--card-border-radius);
     box-shadow: 0 4px 15px rgba(13, 110, 253, 0.15);
 }
+
+.img-prenotazione-fissa {
+    height: 250px !important; /* Altezza bloccata */
+    width: 100%;
+    object-fit: cover; /* Fondamentale: riempie il box senza schiacciare la foto */
+    object-position: center;
+}

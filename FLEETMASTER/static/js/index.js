@@ -1,123 +1,100 @@
-/* static/js/index.js */
+// ==========================================
+// STATE & CONFIG
+// ==========================================
+const ITEMS_PER_PAGE = 6;
+const DEFAULT_IMG = 'https://img.freepik.com/free-psd/cartoon-modern-car-illustration_23-2151227151.jpg';
 
-// Configurazione e Stato Globale
-const ELEMENTI_PER_PAGINA = 6;
 let tuttiIVeicoli = [];
 let paginaCorrente = 1;
-let isNoleggioAttivo = false;
+// Critical flag: if true, disables all "Book" buttons
+let isNoleggioAttivo = false; 
 
-// ID temporanei per modali
+// Temp refs for modals
 let idRestituzione = null;
 let idRifiuto = null;
 
-// Init & Event Binding
+// ==========================================
+// INIT
+// ==========================================
 $(function () {
-
-    /* ==========================================
-       GESTIONE JWT & SICUREZZA (ROBUSTA)
-       ========================================== */
     const token = localStorage.getItem('jwt_token');
+    const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
 
-    // 1. Check Token (Se manca, vai al login)
-    if (!token || token === "null" || token === "undefined") {
+    // --- SECURITY CHECK ---
+    if (!token) {
         window.location.href = '/login';
         return;
     }
-
-    // ============================================================
-    // 2. CHECK RUOLO: SE SEI ADMIN, VAI AL BACKOFFICE!
-    // ============================================================
-    const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
-    
+    // Redirect Admin to Backoffice (they should not use the user frontend)
     if (userData.ruolo_nome === 'admin') {
-        console.log("Admin rilevato in Home. Reindirizzamento al Backoffice...");
         window.location.href = '/backoffice';
-        return; // Ferma tutto il resto dello script
+        return;
     }
-    // ============================================================
 
-
-    // 3. Configura jQuery per Auth Header
+    // --- AJAX SETUP ---
     $.ajaxSetup({
-        beforeSend: function (xhr) {
-            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-        }
+        beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token)
     });
 
-    // 4. Gestore Globale Errori (Token Scaduto)
-    $(document).ajaxError(function (event, jqXHR) {
+    // Forced logout on 401/422
+    $(document).ajaxError((e, jqXHR) => {
         if (window.location.pathname === '/login') return;
-
-        if (jqXHR.status === 401 || jqXHR.status === 422) {
-            console.error("Sessione scaduta.");
-            localStorage.removeItem('jwt_token');
-            localStorage.removeItem('user_data');
-            alert("La sessione è scaduta. Effettua nuovamente il login.");
+        if ([401, 422].includes(jqXHR.status)) {
+            localStorage.clear();
+            alert("Sessione scaduta.");
             window.location.href = '/login';
         }
     });
-    /* ========================================== */
 
-
-    // Se arrivo qui, sono un Utente Standard. Carico la Home.
+    // --- START FLOW ---
     checkStatoUtente();
 
-    // Handler conferma restituzione
-    $('#btnConfermaRestituzione').click(function () {
-        if (idRestituzione) eseguiRestituzione(idRestituzione);
-    });
-
-    // Handler presa visione rifiuto
-    $('#btnAckRifiuto').click(function () {
-        if (idRifiuto) cancellaPrenotazioneRifiutata(idRifiuto);
-    });
+    // Modal event binding
+    $('#btnConfermaRestituzione').click(() => idRestituzione && eseguiRestituzione(idRestituzione));
+    $('#btnAckRifiuto').click(() => idRifiuto && cancellaPrenotazioneRifiutata(idRifiuto));
 });
 
 /* ==========================================
-   LOGICA CORE & STATO
+   CORE LOGIC
    ========================================== */
 
 function checkStatoUtente() {
-    $.ajax({
-        url: '/getLastPrenotazione',
-        method: 'GET',
-        dataType: 'json'
-    }).done(function (res) {
-
-        // Reset stato iniziale
+    // Determine layout: Simple List VS Active Rental Dashboard
+    $.get('/getLastPrenotazione', (res) => {
+        
         isNoleggioAttivo = false;
         $('#sezionePrenotazioneAttiva').hide();
 
-        if (res && res.success && res.prenotazione) {
+        if (res?.success && res.prenotazione) {
             const p = res.prenotazione;
 
-            if (['prenotata', 'approvata'].includes(p.stato)) {
-                isNoleggioAttivo = true;
-                renderPrenotazioneAttiva(p);
-            }
-            else if (p.stato === 'in attesa') {
-                isNoleggioAttivo = true;
-                renderPrenotazioneInAttesa(p);
-            }
-            else if (p.stato === 'rifiutata') {
-                isNoleggioAttivo = true;
-                idRifiuto = p.prenotazione_id;
-                setTimeout(() => {
-                    new bootstrap.Modal('#modalRifiuto').show();
-                }, 100);
+            // STATUS SWITCH
+            switch (p.stato) {
+                case 'prenotata':
+                case 'approvata':
+                    isNoleggioAttivo = true;
+                    renderPrenotazioneAttiva(p);
+                    break;
+                case 'in attesa':
+                    isNoleggioAttivo = true;
+                    renderPrenotazioneInAttesa(p);
+                    break;
+                case 'rifiutata':
+                    // NOTE: Partial block, but show modal immediately for ACK
+                    isNoleggioAttivo = true; 
+                    idRifiuto = p.prenotazione_id;
+                    setTimeout(() => new bootstrap.Modal('#modalRifiuto').show(), 100);
+                    break;
             }
         }
-
+        
+        // Load vehicles AFTER setting isNoleggioAttivo
         caricaVeicoli();
     });
 }
 
 function caricaVeicoli() {
-    $.ajax({
-        url: '/getAllVeicoli',
-        method: 'GET',
-        dataType: 'json'
-    }).done(function (res) {
+    $.get('/getAllVeicoli', (res) => {
         if (!res.success) return;
         tuttiIVeicoli = res.veicoli;
         paginaCorrente = 1;
@@ -126,22 +103,26 @@ function caricaVeicoli() {
 }
 
 /* ==========================================
-   RENDERING UI (LISTA VEICOLI)
+   RENDERING LISTA
    ========================================== */
 
 function renderizzaGrigliaVeicoli() {
     const container = $("#containerVeicoli").empty();
-    const inizio = (paginaCorrente - 1) * ELEMENTI_PER_PAGINA;
-    const veicoliPagina = tuttiIVeicoli.slice(inizio, inizio + ELEMENTI_PER_PAGINA);
+    const start = (paginaCorrente - 1) * ITEMS_PER_PAGE;
+    const pageItems = tuttiIVeicoli.slice(start, start + ITEMS_PER_PAGE);
 
-    veicoliPagina.forEach(v => {
-        const imgSrc = v.img || 'https://img.freepik.com/free-psd/cartoon-modern-car-illustration_23-2151227151.jpg';
+    pageItems.forEach(v => {
+        const imgSrc = v.img || DEFAULT_IMG;
         const isAvailable = v.stato_disponibile;
 
         const badgeHtml = isAvailable
             ? `<span class="status-badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Disponibile</span>`
             : `<span class="status-badge bg-secondary text-white"><i class="bi bi-x-circle me-1"></i>Occupato</span>`;
 
+        // Button logic:
+        // 1. User has active rental -> Disabled (all)
+        // 2. Vehicle occupied -> Disabled
+        // 3. Else -> Primary Action
         let btnProps = { class: 'btn-primary', text: 'Prenota Ora', attr: '' };
 
         if (isNoleggioAttivo) {
@@ -153,26 +134,24 @@ function renderizzaGrigliaVeicoli() {
         const card = `
             <div class="col">
                 <div class="vehicle-card h-100 shadow-sm border-0 transition-hover">
-                    <div class="vehicle-img-wrapper position-relative overflow-hidden" style="height: 200px;">
-                        <img src="${imgSrc}" alt="${v.modello}" class="w-100 h-100 object-fit-cover">
+                    <div class="vehicle-img-wrapper">
+                        <img src="${imgSrc}" alt="${v.modello}">
                         ${badgeHtml}
                     </div>
-                    <div class="card-body p-3">
+                    <div class="card-body-custom">
                         <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="fw-bold mb-0 text-truncate" style="max-width: 70%;">${v.marca} ${v.modello}</h5>
-                            <span class="badge bg-light text-dark border">${v.anno_immatricolazione || v.anno || '2023'}</span>
+                            <h5 class="vehicle-title text-truncate">${v.marca} ${v.modello}</h5>
+                            <span class="badge bg-light text-dark border">${v.anno_immatricolazione || '2023'}</span>
                         </div>
                         <div class="mb-3">
-                            <div class="d-flex align-items-center text-muted small mb-1">
-                                <i class="bi bi-123 me-2 text-primary"></i> <span>${v.targa}</span>
-                            </div>
-                            <div class="d-flex align-items-center text-muted small">
-                                <i class="bi bi-fuel-pump me-2 text-primary"></i> <span>${v.tipologia || 'Standard'}</span>
-                            </div>
+                            <div class="vehicle-detail"><i class="bi bi-123 text-primary"></i> <span>${v.targa}</span></div>
+                            <div class="vehicle-detail"><i class="bi bi-fuel-pump text-primary"></i> <span>${v.tipologia || 'Standard'}</span></div>
                         </div>
-                        <button class="btn ${btnProps.class} w-100 fw-semibold" onclick="vaiAPrenotazione('${v.veicolo_id}')" ${btnProps.attr}>
-                            ${btnProps.text}
-                        </button>
+                        <div class="mt-auto">
+                            <button class="btn ${btnProps.class} w-100 fw-semibold" onclick="vaiAPrenotazione('${v.veicolo_id}')" ${btnProps.attr}>
+                                ${btnProps.text}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -183,77 +162,69 @@ function renderizzaGrigliaVeicoli() {
 }
 
 function renderizzaPaginazione() {
-    const navContainer = $('#paginationContainer').empty();
-    const totalePagine = Math.ceil(tuttiIVeicoli.length / ELEMENTI_PER_PAGINA);
+    const container = $('#paginationContainer').empty();
+    const pages = Math.ceil(tuttiIVeicoli.length / ITEMS_PER_PAGE);
 
-    if (totalePagine <= 1) return;
+    if (pages <= 1) return;
 
-    const createLink = (page, text, disabled = false, active = false) => `
-        <li class="page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}">
-            <a class="page-link shadow-none" href="#" onclick="cambiaPagina(${page}); return false;">${text}</a>
+    const mkLink = (p, txt, dis = false, act = false) => `
+        <li class="page-item ${dis ? 'disabled' : ''} ${act ? 'active' : ''}">
+            <a class="page-link shadow-none" href="#" onclick="cambiaPagina(${p}); return false;">${txt}</a>
         </li>`;
 
-    navContainer.append(createLink(paginaCorrente - 1, 'Precedente', paginaCorrente === 1));
-    for (let i = 1; i <= totalePagine; i++) {
-        navContainer.append(createLink(i, i, false, i === paginaCorrente));
-    }
-    navContainer.append(createLink(paginaCorrente + 1, 'Successiva', paginaCorrente === totalePagine));
+    container.append(mkLink(paginaCorrente - 1, 'Precedente', paginaCorrente === 1));
+    for (let i = 1; i <= pages; i++) container.append(mkLink(i, i, false, i === paginaCorrente));
+    container.append(mkLink(paginaCorrente + 1, 'Successiva', paginaCorrente === pages));
 }
 
-function cambiaPagina(nuovaPagina) {
-    const totalePagine = Math.ceil(tuttiIVeicoli.length / ELEMENTI_PER_PAGINA);
-    if (nuovaPagina < 1 || nuovaPagina > totalePagine) return;
+function cambiaPagina(newPage) {
+    const pages = Math.ceil(tuttiIVeicoli.length / ITEMS_PER_PAGE);
+    if (newPage < 1 || newPage > pages) return;
 
-    paginaCorrente = nuovaPagina;
+    paginaCorrente = newPage;
     renderizzaGrigliaVeicoli();
     $('html, body').animate({ scrollTop: $("#sezioneListaVeicoli").offset().top - 100 }, 300);
 }
 
 /* ==========================================
-   RENDERING UI (STATUS CARD)
+   DASHBOARD COMPONENTS (Active/Pending)
    ========================================== */
 
-function renderPrenotazioneAttiva(prenotazione) {
-    const v = prenotazione.veicolo;
-    const imgUrl = v.img || 'https://img.freepik.com/free-psd/cartoon-modern-car-illustration_23-2151227151.jpg';
+function renderPrenotazioneAttiva(p) {
+    const v = p.veicolo;
+    const badgeClass = p.stato === 'approvata' ? 'bg-success' : 'bg-primary';
+    const badgeText = p.stato === 'approvata' ? 'Approvata' : 'Noleggio Attivo';
 
     const html = `
         <div class="active-booking-card p-0 overflow-hidden mb-5 border border-primary border-opacity-25 shadow-sm rounded-4">
             <div class="row g-0">
-                <div class="col-md-4 position-relative">
-                    <div class="position-absolute top-0 start-0 m-3 z-1">
-                         <span class="badge bg-primary px-3 py-2 shadow-sm">Noleggio Attivo</span>
+                <div class="col-md-4 position-relative" style="min-height: 250px;">
+                    <div class="position-absolute top-0 start-0 m-3 z-2">
+                         <span class="badge ${badgeClass} px-3 py-2 shadow-sm">${badgeText}</span>
                     </div>
-                    <img src="${imgUrl}" class="img-fluid h-100 w-100 object-fit-cover" alt="${v.modello}" style="min-height: 250px;">
+                    <img src="${v.img || DEFAULT_IMG}" class="position-absolute w-100 h-100 top-0 start-0" style="object-fit: cover;">
                 </div>
                 <div class="col-md-8">
                     <div class="card-body p-4 d-flex flex-column justify-content-center h-100">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <h5 class="card-title fw-bold fs-3 mb-1 text-dark">${v.marca} ${v.modello}</h5>
-                                <p class="text-muted mb-0"><i class="bi bi-car-front me-1"></i> ${v.targa}</p>
-                            </div>
-                        </div>
+                        <h5 class="card-title fw-bold fs-3 mb-1 text-dark">${v.marca} ${v.modello}</h5>
+                        <p class="text-muted mb-4"><i class="bi bi-car-front me-1"></i> ${v.targa}</p>
+                        
                         <div class="row g-3 mb-4">
                             <div class="col-sm-6">
                                 <div class="p-3 bg-light rounded-3 border">
                                     <small class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem;">Ritiro</small>
-                                    <div class="fw-semibold text-dark mt-1">
-                                        <i class="bi bi-calendar-check text-primary me-2"></i> ${new Date(prenotazione.data_inizio).toLocaleDateString()}
-                                    </div>
+                                    <div class="fw-semibold text-dark mt-1">${formatData(p.data_inizio)}</div>
                                 </div>
                             </div>
                             <div class="col-sm-6">
                                 <div class="p-3 bg-light rounded-3 border">
-                                    <small class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem;">Consegna Prevista</small>
-                                    <div class="fw-semibold text-dark mt-1">
-                                        <i class="bi bi-calendar-x text-primary me-2"></i> ${new Date(prenotazione.data_fine).toLocaleDateString()}
-                                    </div>
+                                    <small class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem;">Consegna</small>
+                                    <div class="fw-semibold text-dark mt-1">${formatData(p.data_fine)}</div>
                                 </div>
                             </div>
                         </div>
                         <div class="text-end mt-auto">
-                            <button class="btn btn-outline-danger px-4 py-2 fw-semibold" onclick="apriModalRestituzione('${prenotazione.prenotazione_id}')">
+                            <button class="btn btn-outline-danger px-4 py-2 fw-semibold" onclick="apriModalRestituzione('${p.prenotazione_id}')">
                                 <i class="bi bi-key me-2"></i> Restituisci Veicolo
                             </button>
                         </div>
@@ -267,42 +238,30 @@ function renderPrenotazioneAttiva(prenotazione) {
     $('#sezionePrenotazioneAttiva').fadeIn();
 }
 
-function renderPrenotazioneInAttesa(prenotazione) {
-    const v = prenotazione.veicolo;
-    const imgUrl = v.img || 'https://img.freepik.com/free-psd/cartoon-modern-car-illustration_23-2151227151.jpg';
-
+function renderPrenotazioneInAttesa(p) {
+    const v = p.veicolo;
     const html = `
         <div class="active-booking-card p-0 overflow-hidden mb-5 border border-warning border-opacity-50 shadow-sm rounded-4">
-            <div class="row g-0">
-                <div class="col-md-4 position-relative">
-                    <div class="position-absolute top-0 start-0 m-3 z-1">
+            <div class="row g-0"> 
+                <div class="col-md-4 position-relative" style="min-height: 250px;">
+                    <div class="position-absolute top-0 start-0 m-3 z-2">
                          <span class="badge bg-warning text-dark px-3 py-2 shadow-sm"><i class="bi bi-hourglass-split me-1"></i> In Attesa</span>
                     </div>
-                    <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark opacity-25"></div>
-                    <img src="${imgUrl}" class="img-fluid h-100 w-100 object-fit-cover" alt="${v.modello}" style="min-height: 250px;">
+                    <img src="${v.img || DEFAULT_IMG}" class="position-absolute w-100 h-100 top-0 start-0" style="object-fit: cover;">
                 </div>
                 <div class="col-md-8">
                     <div class="card-body p-4 d-flex flex-column justify-content-center h-100">
-                        <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                        <div class="alert alert-warning d-flex align-items-center mb-3">
                             <i class="bi bi-info-circle-fill flex-shrink-0 me-2 fs-5"></i>
                             <div><strong>Richiesta inviata!</strong> In attesa di approvazione admin.</div>
                         </div>
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                                <h5 class="card-title fw-bold fs-3 mb-1 text-dark">${v.marca} ${v.modello}</h5>
-                                <p class="text-muted mb-0">Targa: <strong>${v.targa}</strong></p>
-                            </div>
-                        </div>
+                        <h5 class="card-title fw-bold fs-3 mb-1 text-dark">${v.marca} ${v.modello}</h5>
+                        <p class="text-muted mb-0">Targa: <strong>${v.targa}</strong></p>
+                        
                         <div class="mt-3 bg-light p-3 rounded border border-warning border-opacity-25">
-                            <div class="d-flex align-items-center mb-2">
-                                <i class="bi bi-calendar-event text-warning me-3 fs-5"></i>
-                                <div>
-                                    <small class="text-muted d-block">Periodo Richiesto</small>
-                                    <span class="fw-semibold">Dal ${new Date(prenotazione.data_inizio).toLocaleDateString()} al ${new Date(prenotazione.data_fine).toLocaleDateString()}</span>
-                                </div>
-                            </div>
+                            <small class="text-muted d-block">Periodo Richiesto</small>
+                            <span class="fw-semibold">Dal ${formatData(p.data_inizio)} al ${formatData(p.data_fine)}</span>
                         </div>
-                        <div class="mt-3 text-center text-muted small">Non puoi prenotare altri veicoli finché questa richiesta è pendente.</div>
                     </div>
                 </div>
             </div>
@@ -314,7 +273,7 @@ function renderPrenotazioneInAttesa(prenotazione) {
 }
 
 /* ==========================================
-   AZIONI (PRENOTAZIONE / RESTITUZIONE)
+   ACTIONS & UTILS
    ========================================== */
 
 function vaiAPrenotazione(id) {
@@ -327,8 +286,7 @@ function apriModalRestituzione(id) {
 }
 
 function eseguiRestituzione(id) {
-    const btn = $('#btnConfermaRestituzione');
-    btn.prop('disabled', true).text('Elaborazione...');
+    const btn = $('#btnConfermaRestituzione').prop('disabled', true).text('Elaborazione...');
 
     $.ajax({
         url: '/restituisciVeicolo',
@@ -338,10 +296,10 @@ function eseguiRestituzione(id) {
     }).done(res => {
         if (res.success) {
             bootstrap.Modal.getInstance(document.getElementById('modalRestituzione')).hide();
-            // Show modal successo e refresh al close
-            const modalSucc = new bootstrap.Modal(document.getElementById('modalSuccesso'));
-            document.getElementById('modalSuccesso').addEventListener('hidden.bs.modal', () => location.reload());
-            modalSucc.show();
+            // Reload on success modal close
+            const el = document.getElementById('modalSuccesso');
+            el.addEventListener('hidden.bs.modal', () => location.reload());
+            new bootstrap.Modal(el).show();
         } else {
             alert("Errore: " + res.message);
             btn.prop('disabled', false).text('Sì, Restituisci');
@@ -353,8 +311,7 @@ function eseguiRestituzione(id) {
 }
 
 function cancellaPrenotazioneRifiutata(id) {
-    const btn = $('#btnAckRifiuto');
-    btn.prop('disabled', true).text('Elaborazione...');
+    const btn = $('#btnAckRifiuto').prop('disabled', true).text('Elaborazione...');
 
     $.ajax({
         url: '/confermaVisioneRifiuto',
@@ -369,8 +326,10 @@ function cancellaPrenotazioneRifiutata(id) {
             alert("Errore: " + res.message);
             btn.prop('disabled', false).text('Ho Capito');
         }
-    }).fail(() => {
-        alert("Errore di connessione.");
-        btn.prop('disabled', false).text('Ho Capito');
     });
+}
+
+function formatData(isoString) {
+    if (!isoString) return '-';
+    return new Date(isoString).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }

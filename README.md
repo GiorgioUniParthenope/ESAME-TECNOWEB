@@ -155,6 +155,7 @@ Use the following accounts to test the platform:
 ├── nginx/
 │   └── nginx.conf       # Nginx reverse proxy configuration
 ├── route/               # Helper modules (e.g. login_required)
+├── db/                  # Create database FleetMaster
 ├── static/              # CSS, JS, images
 ├── templates/           # Jinja2 HTML templates
 ├── app.py               # Main Flask application

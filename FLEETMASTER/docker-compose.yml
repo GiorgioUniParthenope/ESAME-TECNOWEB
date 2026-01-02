@@ -12,8 +12,7 @@ services:
 
   nginx:
     image: nginx:latest
-    ports:
-      - "80:80"  # Ora il sito sarà accessibile sulla porta 80 (standard web)
+    ports: "80:5000"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:

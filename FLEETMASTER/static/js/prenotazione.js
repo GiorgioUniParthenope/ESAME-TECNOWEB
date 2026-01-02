@@ -1,161 +1,72 @@
-/* static/js/prenotazione.js */
-
 // ==========================================
-// CONFIGURAZIONE & JWT (ROBUSTA)
-// ==========================================
-const token = localStorage.getItem('jwt_token');
-
-// DEBUG: Controllo in console
-console.log("[Prenotazione] Token:", token);
-
-// 1. Check Token immediato (Stringente)
-if (!token || token === "null" || token === "undefined") {
-    console.warn("Token mancante o invalido. Redirect login.");
-    alert("Devi effettuare il login per prenotare.");
-    window.location.href = '/login';
-}
-
-// 2. Header pronti per Fetch
-const authHeaders = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + token
-};
-
-// ==========================================
-// INIT & SETUP
+// INIT & SECURITY
 // ==========================================
 
 $(function () {
+    const token = localStorage.getItem('jwt_token');
+
+    // 1. Security Check
+    if (!token) {
+        alert("Login necessario.");
+        window.location.href = '/login';
+        return;
+    }
+
+    // 2. Global Ajax Setup
+    $.ajaxSetup({
+        beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token)
+    });
+
+    // 3. UI Setup
     const params = new URLSearchParams(window.location.search);
     const idVeicolo = params.get('idveicolo');
 
-    // Inizializzazione vincoli input date
-    setupDateConstraints();
+    initDateLogic();
 
-    // Check parametro obbligatorio
     if (idVeicolo) {
         loadVeicoloData(idVeicolo);
     } else {
-        mostraErrore("Nessun veicolo selezionato!", true);
+        mostraErrore("Nessun veicolo selezionato.", true);
     }
 
-    // Binding bottone invio
-    $('#btnConfermaPrenotazione').click(inviaPrenotazione);
+    // 4. Bind Submit
+    $('#btnConfermaPrenotazione').on('click', inviaPrenotazione);
 });
 
 // ==========================================
-// LOGICA DATE & VALIDAZIONE
+// DATE LOGIC & VALIDATION
 // ==========================================
 
-function setupDateConstraints() {
-    const elStart = document.getElementById('data_inizio');
-    const elEnd = document.getElementById('data_fine');
+function initDateLogic() {
+    const $start = $('#data_inizio');
+    const $end = $('#data_fine');
 
-    // Calcolo timestamp locale ISO per il "min"
+    // FIX: Timezone offset hack for datetime-local input
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    const nowString = now.toISOString().slice(0, 16);
+    const nowIso = now.toISOString().slice(0, 16);
 
-    elStart.min = nowString;
+    // Set minimum to "now"
+    $start.attr('min', nowIso);
 
-    // Listener cambio data inizio
-    elStart.addEventListener('change', function () {
-        if (this.value) {
-            elEnd.min = this.value;
-
-            // Reset data fine se incongruente
-            if (elEnd.value && elEnd.value < this.value) {
-                elEnd.value = "";
-                mostraErrore("La data di fine è stata resettata perché precedente all'inizio.");
+    // Chain: When Start changes -> Update Min End
+    $start.on('change', function () {
+        const val = $(this).val();
+        if (val) {
+            $end.attr('min', val);
+            
+            // If End date is before Start date, reset it
+            if ($end.val() && $end.val() < val) {
+                $end.val('');
+                mostraErrore("La data di fine è stata corretta.");
             }
         }
     });
 }
 
-// ==========================================
-// API CALLS (FETCH)
-// ==========================================
-
-function loadVeicoloData(id) {
-    fetch(`/veicolo/${id}`, { headers: authHeaders })
-        .then(res => {
-            if (res.status === 401) throw new Error("Token scaduto");
-            return res.json();
-        })
-        .then(data => {
-            if (data.success) {
-                popolaFormVeicolo(data.veicolo);
-            } else {
-                mostraErrore("Errore caricamento veicolo: " + data.message);
-            }
-        })
-        .catch(err => handleApiError(err));
-}
-
-function inviaPrenotazione() {
-    // Recupero dati utente dal localStorage
-    let userId = null;
-    try {
-        const userData = JSON.parse(localStorage.getItem('user_data'));
-        userId = userData ? userData.user_id : null;
-        console.log("[Prenotazione] User ID recuperato:", userId);
-    } catch (e) {
-        console.error("Errore parsing user_data", e);
-    }
-
-    const veicoloId = document.getElementById('veicolo_id_hidden').value;
-    const dataInizio = document.getElementById('data_inizio').value;
-    const dataFine = document.getElementById('data_fine').value;
-    const note = document.getElementById('note').value;
-
-    // Validazione Client-Side
-    if (!validatePrenotazione(dataInizio, dataFine)) return;
-
-    const payload = {
-        user_id: userId, // Backend usa il token, ma passarlo è safe
-        veicolo_id: veicoloId,
-        data_inizio: dataInizio,
-        data_fine: dataFine,
-        note: note
-    };
-
-    // Invio Request
-    fetch('/prenotaVeicolo', {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify(payload)
-    })
-        .then(res => {
-            if (res.status === 401) throw new Error("Token scaduto");
-            return res.json();
-        })
-        .then(data => {
-            if (data.success) {
-                handleSuccessoPrenotazione();
-            } else {
-                mostraErrore("Impossibile completare la prenotazione: " + data.message);
-            }
-        })
-        .catch(err => handleApiError(err));
-}
-
-// ==========================================
-// UI & HELPERS
-// ==========================================
-
-function popolaFormVeicolo(v) {
-    document.getElementById('marca').value = v.marca;
-    document.getElementById('modello').value = v.modello;
-    document.getElementById('targa').value = v.targa;
-    document.getElementById('tipologia').value = v.tipologia;
-    document.getElementById('anno').value = v.anno;
-    document.getElementById('ultima_manutenzione').value = v.ultima_manutenzione;
-    document.getElementById('veicolo_id_hidden').value = v.veicolo_id;
-}
-
 function validatePrenotazione(start, end) {
     if (!start || !end) {
-        mostraErrore("Inserisci le date di inizio e fine per proseguire.");
+        mostraErrore("Inserisci entrambe le date.");
         return false;
     }
 
@@ -163,8 +74,9 @@ function validatePrenotazione(start, end) {
     const dEnd = new Date(end);
     const dNow = new Date();
 
+    // 1 min tolerance to avoid blocking due to slow clicks/latency
     if (dStart < dNow.setMinutes(dNow.getMinutes() - 1)) {
-        mostraErrore("La data di inizio non può essere nel passato.");
+        mostraErrore("La data di inizio è nel passato.");
         return false;
     }
 
@@ -176,49 +88,97 @@ function validatePrenotazione(start, end) {
     return true;
 }
 
-function handleSuccessoPrenotazione() {
-    // Verifica se la modale esiste nel DOM
-    const modalEl = document.getElementById('modalSuccesso');
-    if (modalEl) {
-        const modal = new bootstrap.Modal(modalEl);
-        modalEl.addEventListener('hidden.bs.modal', () => {
-            window.location.href = "/";
-        }, { once: true });
-        modal.show();
-    } else {
-        // Fallback se la modale non c'è
-        alert("Prenotazione effettuata con successo!");
-        window.location.href = "/";
-    }
+// ==========================================
+// API CALLS
+// ==========================================
+
+function loadVeicoloData(id) {
+    $.get(`/veicolo/${id}`)
+        .done(res => {
+            if (res.success) {
+                popolaFormVeicolo(res.veicolo);
+            } else {
+                mostraErrore("Veicolo non trovato.", true);
+            }
+        })
+        .fail(() => mostraErrore("Errore recupero dati veicolo.", true));
 }
 
-function mostraErrore(messaggio, redirectOnClose = false) {
-    const modalEl = document.getElementById('modalErrore');
-    if (!modalEl) {
-        alert(messaggio);
-        if (redirectOnClose) window.location.href = '/';
-        return;
-    }
+function inviaPrenotazione() {
+    const vId = $('#veicolo_id_hidden').val();
+    const start = $('#data_inizio').val();
+    const end = $('#data_fine').val();
+    const note = $('#note').val();
 
-    document.getElementById('modalErroreTesto').textContent = messaggio;
+    if (!validatePrenotazione(start, end)) return;
 
-    if (redirectOnClose) {
-        modalEl.addEventListener('hidden.bs.modal', () => {
-            window.location.href = "/";
-        }, { once: true });
-    }
+    // NOTE: Do not send user_id, backend extracts it safely from JWT Token
+    const payload = {
+        veicolo_id: vId,
+        data_inizio: start,
+        data_fine: end,
+        note: note
+    };
+    
+    // UI Loading state
+    const $btn = $('#btnConfermaPrenotazione').prop('disabled', true).text('Attendi...');
 
+    $.ajax({
+        url: '/prenotaVeicolo',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(payload)
+    })
+    .done(res => {
+        if (res.success) {
+            handleSuccesso();
+        } else {
+            mostraErrore(res.message);
+            $btn.prop('disabled', false).text('Conferma Prenotazione');
+        }
+    })
+    .fail(err => {
+        // Standard API error handling
+        const msg = err.responseJSON?.message || "Errore server.";
+        mostraErrore(msg);
+        $btn.prop('disabled', false).text('Conferma Prenotazione');
+    });
+}
+
+// ==========================================
+// UI HELPERS
+// ==========================================
+
+function popolaFormVeicolo(v) {
+    $('#marca').val(v.marca);
+    $('#modello').val(v.modello);
+    $('#targa').val(v.targa);
+    $('#tipologia').val(v.tipologia);
+    $('#anno').val(v.anno);
+    $('#ultima_manutenzione').val(v.ultima_manutenzione);
+    $('#veicolo_id_hidden').val(v.veicolo_id);
+}
+
+function handleSuccesso() {
+    const modalEl = document.getElementById('modalSuccesso');
+    // Redirect upon modal closure
+    modalEl.addEventListener('hidden.bs.modal', () => window.location.href = "/", { once: true });
     new bootstrap.Modal(modalEl).show();
 }
 
-function handleApiError(err) {
-    console.error("API Error:", err);
-    if (err.message === "Token scaduto") {
-        alert("Sessione scaduta. Rifai il login.");
-        localStorage.removeItem('jwt_token');
-        localStorage.removeItem('user_data');
-        window.location.href = '/login';
-    } else {
-        mostraErrore("Errore di comunicazione col server.");
+function mostraErrore(msg, redirect = false) {
+    const modalEl = document.getElementById('modalErrore');
+    
+    // Fallback if modal does not exist in DOM
+    if (!modalEl) {
+        alert(msg);
+        if (redirect) window.location.href = '/';
+        return;
     }
+
+    $('#modalErroreTesto').text(msg);
+    if (redirect) {
+        modalEl.addEventListener('hidden.bs.modal', () => window.location.href = "/", { once: true });
+    }
+    new bootstrap.Modal(modalEl).show();
 }
