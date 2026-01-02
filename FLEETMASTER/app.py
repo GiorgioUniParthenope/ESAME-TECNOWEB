@@ -1,20 +1,24 @@
+import os
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 from model import db, Utente, TipologiaVeicolo, Veicolo, Prenotazione, LogOperazione, Ruolo
-# Added get_jwt for raw access to claims
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash
 import uuid
 
+# --- LOAD ENV VARS ---
+load_dotenv()  # Load variables from .env file
+
 app = Flask(__name__)
 
-# --- DB & CONFIG ---
-# NOTE: Direct connection string (use env vars in production)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:JwCsDhwQADBtHgMYmzCbPRbgIBwDnvxq@tramway.proxy.rlwy.net:20962/railway'
+# --- CONFIGURATION ---
+# FIX: Load sensitive data from environment variables
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # --- JWT SETUP ---
-app.config["JWT_SECRET_KEY"] = "chiave_super_segreta_jwt"
+app.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY', 'fallback_secret_dev_only')
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
@@ -522,4 +526,5 @@ def get_all_tipologie():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0')
+    # DEBUG: Host 0.0.0.0 is safe for Docker/Cloud, be careful in local dev without firewall
+    app.run(debug=os.getenv('DEBUG', 'False') == 'True', host='0.0.0.0')
