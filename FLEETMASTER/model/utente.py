@@ -17,7 +17,6 @@ class Utente(db.Model):
 
     log_operazioni = db.relationship("LogOperazione", backref="utente", lazy=True)
     prenotazioni = db.relationship("Prenotazione", backref="utente", lazy=True, cascade="all, delete")
-    report_generati = db.relationship("Report", backref="autore", lazy=True)
     
     def to_dict(self):
         return {

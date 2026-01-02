@@ -8,7 +8,7 @@ from werkzeug.security import check_password_hash
 import uuid
 
 # --- LOAD ENV VARS ---
-load_dotenv()  # Load variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 

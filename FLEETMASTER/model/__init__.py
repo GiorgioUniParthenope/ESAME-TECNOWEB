@@ -8,4 +8,3 @@ from .tipologia_veicolo import TipologiaVeicolo
 from .veicolo import Veicolo
 from .prenotazione import Prenotazione
 from .log_operazione import LogOperazione
-from .report import Report
