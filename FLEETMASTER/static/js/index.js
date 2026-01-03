@@ -89,11 +89,11 @@ function checkStatoUtente() {
         }
         
         // Load vehicles AFTER setting isNoleggioAttivo
-        caricaVeicoli();
+        caricaParco();
     });
 }
 
-function caricaVeicoli() {
+function caricaParco() {
     $.get('/getAllVeicoli', (res) => {
         if (!res.success) return;
         tuttiIVeicoli = res.veicoli;

@@ -12,7 +12,6 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* --- PAGINAZIONE --- */
 .pagination {
     margin-bottom: 3rem;
 }
@@ -30,9 +29,6 @@ body {
     background-color: var(--primary-color);
     color: white;
 }
-
-/* --- NUOVE CARD VEICOLO --- */
-/* Rimuoviamo .grid-veicoli perché ora usiamo le row di Bootstrap nell'HTML */
 
 .vehicle-card {
     border: none;
@@ -52,11 +48,11 @@ body {
     box-shadow: var(--card-shadow-hover);
 }
 
-/* Immagine */
+
 .vehicle-img-wrapper {
     position: relative;
     width: 100%;
-    height: 200px; /* Altezza fissa per allineare tutto */
+    height: 200px; 
     overflow: hidden;
     background-color: #f0f2f5;
 }
@@ -72,7 +68,6 @@ body {
     transform: scale(1.05);
 }
 
-/* Badge (Disponibile/Occupato) */
 .status-badge {
     position: absolute;
     top: 10px;
@@ -86,10 +81,9 @@ body {
     z-index: 2;
 }
 
-/* Corpo Card */
 .card-body-custom {
     padding: 1.25rem;
-    flex-grow: 1; /* Spinge il bottone in basso */
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
 }
@@ -110,14 +104,12 @@ body {
     gap: 8px;
 }
 
-/* Footer Card (Bottone) */
 .card-footer-custom {
     padding: 1.25rem;
     padding-top: 0;
     background: transparent;
 }
 
-/* --- CARD PRENOTAZIONE ATTIVA --- */
 .active-booking-card {
     background: white;
     border-left: 5px solid var(--primary-color);
@@ -126,8 +118,8 @@ body {
 }
 
 .img-prenotazione-fissa {
-    height: 250px !important; /* Altezza bloccata */
+    height: 250px !important;
     width: 100%;
-    object-fit: cover; /* Fondamentale: riempie il box senza schiacciare la foto */
+    object-fit: cover;
     object-position: center;
 }

@@ -21,10 +21,10 @@ $(function () {
     const params = new URLSearchParams(window.location.search);
     const idVeicolo = params.get('idveicolo');
 
-    initDateLogic();
+    inizializzaDatiPrenotazione();
 
     if (idVeicolo) {
-        loadVeicoloData(idVeicolo);
+        caricamentoDatiVeicolo(idVeicolo);
     } else {
         mostraErrore("Nessun veicolo selezionato.", true);
     }
@@ -37,7 +37,7 @@ $(function () {
 // DATE LOGIC & VALIDATION
 // ==========================================
 
-function initDateLogic() {
+function inizializzaDatiPrenotazione() {
     const $start = $('#data_inizio');
     const $end = $('#data_fine');
 
@@ -92,7 +92,7 @@ function validatePrenotazione(start, end) {
 // API CALLS
 // ==========================================
 
-function loadVeicoloData(id) {
+function caricamentoDatiVeicolo(id) {
     $.get(`/veicolo/${id}`)
         .done(res => {
             if (res.success) {

@@ -23,7 +23,7 @@ $(function () {
         }
 
         // Lock UI (Anti-spam click)
-        toggleLoading(true);
+        caricamentoElemento(true);
 
         $.ajax({
             url: '/login',
@@ -44,14 +44,14 @@ $(function () {
 
             } else {
                 showAlert(res.message || 'Credenziali non valide');
-                toggleLoading(false);
+                caricamentoElemento(false);
             }
         })
         .fail(function (jqXHR) {
             // Network error or generic Server error
             const msg = jqXHR.responseJSON?.message || 'Errore connessione server.';
             showAlert(msg);
-            toggleLoading(false);
+            caricamentoElemento(false);
         });
     });
 });
@@ -60,7 +60,7 @@ $(function () {
 // UI HELPERS
 // ==========================================
 
-function toggleLoading(isLoading) {
+function caricamentoElemento(isLoading) {
     const $btn = $('#loginBtn');
     
     $btn.prop('disabled', isLoading);

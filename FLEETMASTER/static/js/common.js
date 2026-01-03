@@ -3,14 +3,14 @@
 // ==========================================
 
 $(function() {
-    initNavbar();
+    inizializzaNavbar();
 });
 
 // ==========================================
 // NAVBAR & SESSION LOGIC
 // ==========================================
 
-function initNavbar() {
+function inizializzaNavbar() {
     const token = localStorage.getItem('jwt_token');
     const userDataStr = localStorage.getItem('user_data');
     const userSection = $('#nav-user-section');

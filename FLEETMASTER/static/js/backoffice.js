@@ -44,8 +44,8 @@ $(function () {
     // --- EVENTS ---
     caricaDatiAdmin();
 
-    $('#addCarForm').on('submit', (e) => { e.preventDefault(); inviaAggiungiVeicolo(); });
-    $('#editCarForm').on('submit', (e) => { e.preventDefault(); inviaModificaVeicolo(); });
+    $('#addCarForm').on('submit', (e) => { e.preventDefault(); aggiungiVeicolo(); });
+    $('#editCarForm').on('submit', (e) => { e.preventDefault(); modificaVeicolo(); });
 
     // Handle "Confirm" click in generic modal
     $('#btnConfermaAzione').on('click', function () {
@@ -72,7 +72,7 @@ $(function () {
 
 function caricaDatiAdmin() {
     caricaRichieste();
-    caricaFlotta();
+    caricaParco();
 }
 
 // ==========================================
@@ -80,7 +80,7 @@ function caricaDatiAdmin() {
 // ==========================================
 
 function caricaRichieste() {
-    toggleSpinner('#spinnerRequests', '#tableRequests', true);
+    caricamentoSpinner('#spinnerRequests', '#tableRequests', true);
     $('#noRequestsMsg').hide();
     $('#requestsPagination').empty(); // Clear pagination
     const tbody = $('#requestsBody').empty();
@@ -103,10 +103,10 @@ function caricaRichieste() {
         // Render first page
         renderRequestsTable(1);
 
-        toggleSpinner('#spinnerRequests', '#tableRequests', false);
+        caricamentoSpinner('#spinnerRequests', '#tableRequests', false);
 
     }).fail(() => {
-        toggleSpinner('#spinnerRequests', '#tableRequests', false);
+        caricamentoSpinner('#spinnerRequests', '#tableRequests', false);
         mostraModalEsito("Errore", "Impossibile caricare richieste.", false);
     });
 }
@@ -152,7 +152,7 @@ function renderRequestsTable(page) {
     });
 
     // Render Pagination Controls
-    renderPagination('#requestsPagination', requestsData.length, page, 'renderRequestsTable');
+    paginazione('#requestsPagination', requestsData.length, page, 'renderRequestsTable');
 }
 
 function gestisciRichiesta(id, azione) {
@@ -181,7 +181,7 @@ function gestisciRichiesta(id, azione) {
 // FLOTTA (VEHICLE CRUD)
 // ==========================================
 
-function caricaFlotta() {
+function caricaParco() {
     $('#fleetBody').closest('.table-responsive').hide();
     $('#fleetPagination').empty();
     $('#spinnerFleet').show();
@@ -199,11 +199,11 @@ function caricaFlotta() {
 
         // Store data globally and render page 1
         fleetData = res.veicoli;
-        renderFleetTable(1);
+        costruisciTabellaParco(1);
     });
 }
 
-function renderFleetTable(page) {
+function costruisciTabellaParco(page) {
     const tbody = $('#fleetBody').empty();
 
     // Calculate slice
@@ -250,7 +250,7 @@ function renderFleetTable(page) {
     });
 
     // Render Pagination Controls
-    renderPagination('#fleetPagination', fleetData.length, page, 'renderFleetTable');
+    paginazione('#fleetPagination', fleetData.length, page, 'costruisciTabellaParco');
 }
 
 // ==========================================
@@ -264,7 +264,7 @@ function renderFleetTable(page) {
  * @param {number} currentPage - Current page number
  * @param {string} callbackName - Name of the function to call on click (string format)
  */
-function renderPagination(containerId, totalItems, currentPage, callbackName) {
+function paginazione(containerId, totalItems, currentPage, callbackName) {
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
     // Only show pagination if more than 1 page (more than 6 items)
@@ -313,7 +313,7 @@ function renderPagination(containerId, totalItems, currentPage, callbackName) {
 // FORM SUBMISSIONS & ACTIONS
 // ==========================================
 
-function inviaAggiungiVeicolo() {
+function aggiungiVeicolo() {
     const dati = {
         marca: $('#newMarca').val().trim(),
         modello: $('#newModello').val().trim(),
@@ -335,7 +335,7 @@ function inviaAggiungiVeicolo() {
             $('#addCarForm')[0].reset();
 
             mostraModalEsito("Fatto", "Veicolo aggiunto.", true);
-            caricaFlotta();
+            caricaParco();
         } else {
             mostraModalEsito("Errore", res.message, false);
         }
@@ -359,7 +359,7 @@ function apriModalModifica(v) {
     new bootstrap.Modal('#modalEditCar').show();
 }
 
-function inviaModificaVeicolo() {
+function modificaVeicolo() {
     const dati = {
         veicolo_id: $('#editVeicoloId').val(),
         marca: $('#editMarca').val().trim(),
@@ -381,7 +381,7 @@ function inviaModificaVeicolo() {
             (bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el)).hide();
 
             mostraModalEsito("Modificato", "Dati aggiornati.", true);
-            caricaFlotta();
+            caricaParco();
         } else {
             mostraModalEsito("Errore", res.message, false);
         }
@@ -398,7 +398,7 @@ function richiediEliminazione(id) {
         }).done(res => {
             if (res.success) {
                 mostraModalEsito("Eliminato", "Veicolo rimosso.", true);
-                caricaFlotta();
+                caricaParco();
             } else {
                 mostraModalEsito("Errore", res.message, false);
             }
@@ -410,7 +410,7 @@ function richiediEliminazione(id) {
 // UTILS
 // ==========================================
 
-function toggleSpinner(idSpinner, idContenuto, mostra) {
+function caricamentoSpinner(idSpinner, idContenuto, mostra) {
     if (mostra) {
         $(idContenuto).hide();
         $(idSpinner).fadeIn();
