@@ -226,9 +226,9 @@ FleetMaster enforces **Role-Based Access Control (RBAC)**.
 
 | Role     | Name               | Email                                                   | Password | Permissions                |
 | -------- | ------------------ | ------------------------------------------------------- | -------- | -------------------------- |
-| Admin    | Giorgio Napolitano | [napolitano@ministro.it](mailto:napolitano@ministro.it) | admin    | Backoffice, Approve/Reject |
-| Manager  | Giuseppe Emiliano  | [emilix@utente.it](mailto:emilix@utente.it)             | password | Priority 1 & 2 Vehicles    |
-| Employee | Mariano Luciani    | [mariano@utente.it](mailto:mariano@utente.it)           | password | Priority 1 Vehicles Only   |
+| Admin    | Giorgio Napolitano | [napolitano@ministro.it](mailto:napolitano@ministro.it) |  admin   | Backoffice, Approve/Reject |
+| Manager  | Giuseppe Emiliano  | [emilix@utente.it](mailto:emilix@utente.it)             |  admin   | Priority 1 & 2 Vehicles    |
+| Employee | Mariano Luciani    | [mariano@utente.it](mailto:mariano@utente.it)           |  admin   | Priority 1 Vehicles Only   |
 
 > ⚠️ Passwords are for testing purposes only.
 
