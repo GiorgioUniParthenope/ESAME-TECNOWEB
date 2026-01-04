@@ -101,7 +101,7 @@ function caricaRichieste() {
         $('#badgeRequests').text(requestsData.length).show();
 
         // Render first page
-        renderRequestsTable(1);
+        renderizzaTabellaRichieste(1);
 
         caricamentoSpinner('#spinnerRequests', '#tableRequests', false);
 
@@ -111,7 +111,7 @@ function caricaRichieste() {
     });
 }
 
-function renderRequestsTable(page) {
+function renderizzaTabellaRichieste(page) {
     const tbody = $('#requestsBody').empty();
 
     // Calculate slice
@@ -152,7 +152,7 @@ function renderRequestsTable(page) {
     });
 
     // Render Pagination Controls
-    paginazione('#requestsPagination', requestsData.length, page, 'renderRequestsTable');
+    paginazione('#requestsPagination', requestsData.length, page, 'renderizzaTabellaRichieste');
 }
 
 function gestisciRichiesta(id, azione) {
